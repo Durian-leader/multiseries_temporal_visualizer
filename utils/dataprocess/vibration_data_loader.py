@@ -298,4 +298,4 @@ if __name__ == "__main__":
             ]
         )
     # 测试批量处理文件夹
-    VibrationDataLoader.convert_txt_to_csv_batch("./input/data2", "./output/data2_csv")
+    VibrationDataLoader.convert_txt_to_csv_batch("./input/data", "./output/data_csv")

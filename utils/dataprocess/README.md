@@ -141,22 +141,6 @@ python debiasing.py --input ./output/data2_csv_start-idx-reselected --output ./o
    )
    ```
 
-## 文件夹结构
-
-推荐的文件夹结构如下：
-
-```
-project/
-├── input/
-│   └── data2/          # 原始TXT振动数据文件
-├── output/
-│   ├── data2_csv/      # 转换后的CSV文件
-│   ├── data2_csv_start-idx-reselected/  # 选择起始点后的CSV文件
-│   └── data2_csv_start-idx-reselected_debiased/  # 去偏处理后的最终结果
-├── vibration_data_loader.py  # 数据加载和转换脚本
-├── start_idx_visualized_select.py  # 数据起始点选择脚本
-└── debiasing.py  # 数据去偏处理脚本
-```
 
 ## 日志
 

@@ -8,6 +8,8 @@ from loguru import logger
 from typing import List, Dict, Tuple, Optional, Union
 from pathlib import Path
 import sys
+import argparse
+import matplotlib.pyplot as plt
 
 # # 设置日志
 # logging.basicConfig(
@@ -30,7 +32,8 @@ class DataProcessor:
                  input_folder: str = None,
                  rows: int = None,
                  cols: int = None,
-                 sampling_points: int = 500):
+                 sampling_points: int = 500,
+                 use_all_points: bool = False):
         """
         初始化数据处理器
         
@@ -38,15 +41,18 @@ class DataProcessor:
             input_folder: 包含CSV文件的输入文件夹路径
             rows: 数据网格的行数
             cols: 数据网格的列数
-            sampling_points: 采样点数量
+            sampling_points: 采样点数量（仅在use_all_points=False时使用）
+            use_all_points: 是否使用所有原始数据点而不进行降采样
         """
         self.input_folder = input_folder
         self.rows = rows
         self.cols = cols
         self.sampling_points = sampling_points
+        self.use_all_points = use_all_points
         
         # 数据容器
         self.file_paths_grid = None
+        self.filename_grid = None
         self.data = {}
         self.grid_data = None
         self.time_points = None
@@ -82,6 +88,7 @@ class DataProcessor:
         
         # 初始化空网格
         self.file_paths_grid = [[None for _ in range(self.cols)] for _ in range(self.rows)]
+        self.filename_grid = [[None for _ in range(self.cols)] for _ in range(self.rows)]
         
         # 按行优先顺序填充网格
         for idx, file_path in enumerate(csv_files):
@@ -92,6 +99,7 @@ class DataProcessor:
             row = idx // self.cols
             col = idx % self.cols
             self.file_paths_grid[row][col] = file_path
+            self.filename_grid[row][col] = os.path.basename(file_path)
         
         logger.info(f"创建了 {self.rows}×{self.cols} 的文件网格")
     
@@ -160,8 +168,19 @@ class DataProcessor:
         """创建公共时间点并将所有信号插值到这些点"""
         logger.info("同步时间点...")
         
-        # 创建公共时间点
-        self.time_points = np.linspace(self.min_time, self.max_time, self.sampling_points)
+        if self.use_all_points:
+            # 收集所有唯一的时间点
+            all_time_points = set()
+            for (i, j), item in self.data.items():
+                all_time_points.update(item['time'])
+            
+            # 转换为排序的数组
+            self.time_points = np.array(sorted(all_time_points))
+            logger.info(f"使用所有原始数据点: {len(self.time_points)} 个时间点")
+        else:
+            # 创建等间隔的时间点
+            self.time_points = np.linspace(self.min_time, self.max_time, self.sampling_points)
+            logger.info(f"创建了 {len(self.time_points)} 个等间隔时间点")
         
         # 预分配3D网格数据: [时间, 行, 列]
         self.grid_data = np.full((len(self.time_points), self.rows, self.cols), np.nan)
@@ -185,7 +204,7 @@ class DataProcessor:
             # 同时存储到原始数据字典
             item['interp_signal'] = interpolated_signal
         
-        logger.info(f"创建了 {len(self.time_points)} 个同步时间点")
+        logger.info(f"完成了 {len(self.time_points)} 个时间点的数据同步")
     
     def get_processed_data(self) -> Dict:
         """
@@ -203,6 +222,7 @@ class DataProcessor:
             'max_time': self.max_time,
             'rows': self.rows,
             'cols': self.cols,
+            'filename_grid': self.filename_grid,
             'data': self.data
         }
     
@@ -215,6 +235,9 @@ class DataProcessor:
         """
         logger.info(f"保存处理后的数据到 {output_file}")
         
+        # 将文件名网格转换为numpy数组以便保存
+        filename_array = np.array(self.filename_grid, dtype=object)
+        
         # 只保存 numpy 数组和基本类型
         np.savez(
             output_file,
@@ -225,7 +248,8 @@ class DataProcessor:
             min_time=self.min_time,
             max_time=self.max_time,
             rows=self.rows,
-            cols=self.cols
+            cols=self.cols,
+            filename_grid=filename_array
         )
         
         logger.info(f"数据已保存")
@@ -240,7 +264,7 @@ class DataProcessor:
         logger.info(f"从 {input_file} 加载处理后的数据")
         
         try:
-            data = np.load(input_file)
+            data = np.load(input_file, allow_pickle=True)
             
             self.grid_data = data['grid_data']
             self.time_points = data['time_points']
@@ -250,6 +274,14 @@ class DataProcessor:
             self.max_time = float(data['max_time'])
             self.rows = int(data['rows'])
             self.cols = int(data['cols'])
+            
+            # 加载文件名网格（如果存在）
+            if 'filename_grid' in data:
+                self.filename_grid = data['filename_grid'].tolist()
+                logger.info(f"已加载文件名网格")
+            else:
+                self.filename_grid = [[None for _ in range(self.cols)] for _ in range(self.rows)]
+                logger.warning(f"输入文件中没有文件名网格，已创建空网格")
             
             logger.info(f"已加载处理后的数据，形状: {self.grid_data.shape}")
             logger.info(f"时间范围: {self.min_time:.4f} 到 {self.max_time:.4f}")
@@ -300,7 +332,7 @@ if __name__ == "__main__":
         )
     # 创建数据处理器
     processor = DataProcessor(
-        input_folder="./output/data2_csv_start-idx-reselected_debiased",
+        input_folder="./output/data_csv_start-idx-reselected_debiased",
         rows=6,
         cols=6,
         sampling_points=500
@@ -309,11 +341,22 @@ if __name__ == "__main__":
     # 保存处理后的数据
     processor.save_processed_data("my_processed_data.npz")
     
+    # 使用所有原始数据点的示例
+    processor_all_points = DataProcessor(
+        input_folder="./output/data_csv_start-idx-reselected_debiased",
+        rows=6,
+        cols=6,
+        use_all_points=True
+    )
+    
+    # 保存处理后的数据
+    processor_all_points.save_processed_data("my_processed_data_all_points.npz")
+    
     # 创建新的处理器并加载数据
     new_processor = DataProcessor()
     
     # 加载之前保存的数据
-    new_processor.load_processed_data("my_processed_data.npz")
+    new_processor.load_processed_data("my_processed_data_all_points.npz")
     
     # 获取处理后的数据
     processed_data = new_processor.get_processed_data()

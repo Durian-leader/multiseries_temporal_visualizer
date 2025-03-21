@@ -141,6 +141,6 @@ if __name__ == "__main__":
         {"sink": "vibration_data_loader.log", "level": "DEBUG", "rotation": "10 MB"},
         ]
     )
-    input_folder = "./output/data2_csv_start-idx-reselected"
-    output_folder = "./output/data2_csv_start-idx-reselected_debiased"
+    input_folder = "./output/data_csv_start-idx-reselected"
+    output_folder = "./output/data_csv_start-idx-reselected_debiased"
     debias_csv_folder(input_folder, output_folder, truncate_to_min=True)

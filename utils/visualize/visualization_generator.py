@@ -86,7 +86,9 @@ class VisualizationGenerator:
                  dpi: int = 150,
                  colormap: str = 'viridis',
                  custom_gradient: List[str] = None,
-                 output_folder: str = './output/videos'):
+                 output_folder: str = './output/videos',
+                 vmin: float = None,
+                 vmax: float = None):
         """
         初始化可视化生成器
         
@@ -97,6 +99,8 @@ class VisualizationGenerator:
             colormap: matplotlib颜色映射名称或经典配色方案的键名
             custom_gradient: 自定义渐变色, 提供两个RGB或HEX色号
             output_folder: 视频输出文件夹
+            vmin: 颜色映射的最小值，为None时使用数据的最小值
+            vmax: 颜色映射的最大值，为None时使用数据的最大值
         """
         # 从处理后的数据中提取所需信息
         self.grid_data = processed_data['grid_data']
@@ -107,6 +111,10 @@ class VisualizationGenerator:
         self.max_time = processed_data['max_time']
         self.rows = processed_data['rows']
         self.cols = processed_data['cols']
+        
+        # 设置颜色映射范围
+        self.vmin = self.min_signal if vmin is None else vmin
+        self.vmax = self.max_signal if vmax is None else vmax
         
         # 可视化配置
         self.fps = fps
@@ -125,6 +133,7 @@ class VisualizationGenerator:
         logger.info("初始化VisualizationGenerator完成")
         logger.info(f"网格大小: {self.rows}×{self.cols}, 时间点: {len(self.time_points)}")
         logger.info(f"使用色彩映射: {self.colormap}")
+        logger.info(f"颜色映射范围: {self.vmin} - {self.vmax}")
         
     def _check_animation_writers(self):
         """检查可用的动画保存选项"""
@@ -235,6 +244,8 @@ class VisualizationGenerator:
                               title: str = "Signal Intensity Over Time",
                               add_timestamp: bool = True,
                               add_colorbar: bool = True,
+                              vmin: float = None,
+                              vmax: float = None,
                               bitrate: str = "8000k"):
         """
         生成热图动画视频
@@ -244,10 +255,16 @@ class VisualizationGenerator:
             title: 视频标题
             add_timestamp: 是否添加时间戳
             add_colorbar: 是否添加颜色条
+            vmin: 颜色映射的最小值，为None时使用初始化时设置的值
+            vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             bitrate: 视频比特率
         """
         output_path = os.path.join(self.output_folder, output_file)
         logger.info(f"生成热图视频: {output_path}")
+        
+        # 使用方法参数覆盖默认值
+        vmin = self.vmin if vmin is None else vmin
+        vmax = self.vmax if vmax is None else vmax
         
         # 设置图形尺寸 - 增加尺寸确保标题显示
         cell_size = 0.8  # 英寸/单元格
@@ -260,7 +277,7 @@ class VisualizationGenerator:
         ax = plt.subplot(gs[0])
         
         # 设置色彩映射范围
-        norm = Normalize(vmin=self.min_signal, vmax=self.max_signal)
+        norm = Normalize(vmin=vmin, vmax=vmax)
         
         # 如果添加颜色条，创建相应轴
         if add_colorbar:
@@ -367,13 +384,15 @@ class VisualizationGenerator:
                                  title: str = "3D Signal Surface Over Time",
                                  add_timestamp: bool = True,
                                  add_colorbar: bool = True,
+                                 vmin: float = None,
+                                 vmax: float = None,
                                  rotate_view: bool = True,
                                  initial_elev: float = 30,
                                  initial_azim: float = 30,
                                  rotation_speed: float = 1.0,
                                  full_rotation: bool = True,
-                                 fixed_view: bool = False,  # 新增参数：固定视角（不旋转）
-                                 view_angles: List[Tuple[float, float]] = None,  # 新增参数：指定视角列表
+                                 fixed_view: bool = False,
+                                 view_angles: List[Tuple[float, float]] = None,
                                  bitrate: str = "8000k"):
         """
         生成3D表面动画视频
@@ -383,6 +402,8 @@ class VisualizationGenerator:
             title: 视频标题
             add_timestamp: 是否添加时间戳
             add_colorbar: 是否添加颜色条
+            vmin: 颜色映射的最小值，为None时使用初始化时设置的值
+            vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             rotate_view: 是否在动画中旋转视图
             initial_elev: 初始仰角 (0-90度)
             initial_azim: 初始方位角 (0-360度)
@@ -398,6 +419,10 @@ class VisualizationGenerator:
         
         output_path = os.path.join(self.output_folder, output_file)
         logger.info(f"生成3D表面视频: {output_path}")
+        
+        # 使用方法参数覆盖默认值
+        vmin = self.vmin if vmin is None else vmin
+        vmax = self.vmax if vmax is None else vmax
         
         # 设置图形尺寸 - 增加尺寸确保标题显示
         fig = plt.figure(figsize=(14, 11), dpi=self.dpi)  # 增加高度以留出标题空间
@@ -416,8 +441,8 @@ class VisualizationGenerator:
             cmap=self.colormap,
             linewidth=0,
             antialiased=True,
-            vmin=self.min_signal,
-            vmax=self.max_signal
+            vmin=vmin,
+            vmax=vmax
         )
         
         # 添加颜色条
@@ -436,7 +461,7 @@ class VisualizationGenerator:
         # 设置轴范围
         ax.set_xlim(0, self.cols-1)
         ax.set_ylim(0, self.rows-1)
-        ax.set_zlim(self.min_signal, self.max_signal)
+        ax.set_zlim(vmin, vmax)
         
         # 设置初始视角
         ax.view_init(elev=initial_elev, azim=initial_azim)
@@ -509,8 +534,8 @@ class VisualizationGenerator:
                 cmap=self.colormap,
                 linewidth=0,
                 antialiased=True,
-                vmin=self.min_signal,
-                vmax=self.max_signal
+                vmin=vmin,
+                vmax=vmax
             )
             
             # 重新设置轴标签
@@ -521,7 +546,7 @@ class VisualizationGenerator:
             # 设置轴范围
             ax.set_xlim(0, self.cols-1)
             ax.set_ylim(0, self.rows-1)
-            ax.set_zlim(self.min_signal, self.max_signal)
+            ax.set_zlim(vmin, vmax)
             
             # 添加时间戳
             if add_timestamp:
@@ -615,6 +640,8 @@ class VisualizationGenerator:
                                            output_file: str = "heatmap_with_profiles.mp4",
                                            title: str = "Heatmap with Signal Profiles",
                                            add_timestamp: bool = True,
+                                           vmin: float = None,
+                                           vmax: float = None,
                                            bitrate: str = "8000k"):
         """
         生成带有横纵剖面的热图动画视频
@@ -623,10 +650,16 @@ class VisualizationGenerator:
             output_file: 输出视频文件名
             title: 视频标题
             add_timestamp: 是否添加时间戳
+            vmin: 颜色映射的最小值，为None时使用初始化时设置的值
+            vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             bitrate: 视频比特率
         """
         output_path = os.path.join(self.output_folder, output_file)
         logger.info(f"生成带剖面的热图视频: {output_path}")
+        
+        # 使用方法参数覆盖默认值
+        vmin = self.vmin if vmin is None else vmin
+        vmax = self.vmax if vmax is None else vmax
         
         # 创建图形和子图布局
         fig = plt.figure(figsize=(14, 10), dpi=self.dpi)
@@ -644,7 +677,7 @@ class VisualizationGenerator:
         plt.setp(ax_right.get_yticklabels(), visible=False)
         
         # 设置色彩映射范围
-        norm = Normalize(vmin=self.min_signal, vmax=self.max_signal)
+        norm = Normalize(vmin=vmin, vmax=vmax)
         
         # 初始化热图
         im = ax_heatmap.imshow(
@@ -666,12 +699,12 @@ class VisualizationGenerator:
         
         # 水平剖面(固定行，所有列)
         line_top, = ax_top.plot(range(self.cols), self.grid_data[0, middle_row, :], 'b-', lw=2)
-        ax_top.set_ylim(self.min_signal, self.max_signal)
+        ax_top.set_ylim(vmin, vmax)
         ax_top.set_title(f'Row {middle_row} Profile')
         
         # 垂直剖面(所有行，固定列)
         line_right, = ax_right.plot(self.grid_data[0, :, middle_col], range(self.rows), 'r-', lw=2)
-        ax_right.set_xlim(self.min_signal, self.max_signal)
+        ax_right.set_xlim(vmin, vmax)
         ax_right.set_title(f'Column {middle_col} Profile')
         
         # 在热图上显示剖面线
@@ -853,6 +886,8 @@ class VisualizationGenerator:
                                output_file: str = None,
                                title: str = "Signal Intensity at Specific Time",
                                add_colorbar: bool = True,
+                               vmin: float = None,
+                               vmax: float = None,
                                dpi: int = None):
         """
         根据指定时间生成热图静态图像
@@ -862,6 +897,8 @@ class VisualizationGenerator:
             output_file: 输出图像文件名，为None时使用默认命名
             title: 图像标题
             add_colorbar: 是否添加颜色条
+            vmin: 颜色映射的最小值，为None时使用初始化时设置的值
+            vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             dpi: 图像分辨率，为None时使用对象的默认DPI
         
         Returns:
@@ -869,6 +906,10 @@ class VisualizationGenerator:
         """
         # 使用对象默认DPI或指定DPI
         dpi = dpi or self.dpi
+        
+        # 使用方法参数覆盖默认值
+        vmin = self.vmin if vmin is None else vmin
+        vmax = self.vmax if vmax is None else vmax
         
         # 如果没有指定输出文件名，生成默认文件名
         if output_file is None:
@@ -895,7 +936,7 @@ class VisualizationGenerator:
         ax = plt.subplot(gs[0])
         
         # 设置色彩映射范围
-        norm = Normalize(vmin=self.min_signal, vmax=self.max_signal)
+        norm = Normalize(vmin=vmin, vmax=vmax)
         
         # 绘制热图
         im = ax.imshow(
@@ -947,6 +988,8 @@ class VisualizationGenerator:
                                    output_file: str = None,
                                    title: str = "3D Signal Surface at Specific Time",
                                    add_colorbar: bool = True,
+                                   vmin: float = None,
+                                   vmax: float = None,
                                    elev: float = 30,
                                    azim: float = 30,
                                    view_angles: List[Tuple[float, float]] = None,
@@ -959,6 +1002,8 @@ class VisualizationGenerator:
             output_file: 输出图像文件名，为None时使用默认命名
             title: 图像标题
             add_colorbar: 是否添加颜色条
+            vmin: 颜色映射的最小值，为None时使用初始化时设置的值
+            vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             elev: 视图仰角 (0-90度)
             azim: 视图方位角 (0-360度)
             view_angles: 自定义视角列表 [(elev1, azim1), (elev2, azim2), ...]
@@ -972,6 +1017,10 @@ class VisualizationGenerator:
         
         # 使用对象默认DPI或指定DPI
         dpi = dpi or self.dpi
+        
+        # 使用方法参数覆盖默认值
+        vmin = self.vmin if vmin is None else vmin
+        vmax = self.vmax if vmax is None else vmax
         
         # 找到最接近目标时间的时间点索引
         nearest_idx = np.abs(self.time_points - target_time).argmin()
@@ -1002,6 +1051,8 @@ class VisualizationGenerator:
                     output_file=angle_output_file,
                     title=title,
                     add_colorbar=add_colorbar,
+                    vmin=vmin,
+                    vmax=vmax,
                     elev=angle_elev,
                     azim=angle_azim,
                     dpi=dpi
@@ -1025,6 +1076,8 @@ class VisualizationGenerator:
                 output_file=output_file,
                 title=title,
                 add_colorbar=add_colorbar,
+                vmin=vmin,
+                vmax=vmax,
                 elev=elev,
                 azim=azim,
                 dpi=dpi
@@ -1037,6 +1090,8 @@ class VisualizationGenerator:
                                            output_file: str,
                                            title: str,
                                            add_colorbar: bool,
+                                           vmin: float,
+                                           vmax: float,
                                            elev: float,
                                            azim: float,
                                            dpi: int):
@@ -1050,6 +1105,8 @@ class VisualizationGenerator:
             output_file: 输出文件名
             title: 图像标题
             add_colorbar: 是否添加颜色条
+            vmin: 颜色映射的最小值
+            vmax: 颜色映射的最大值
             elev: 视图仰角 (0-90度)
             azim: 视图方位角 (0-360度)
             dpi: 图像分辨率
@@ -1077,8 +1134,8 @@ class VisualizationGenerator:
             cmap=self.colormap,
             linewidth=0,
             antialiased=True,
-            vmin=self.min_signal,
-            vmax=self.max_signal
+            vmin=vmin,
+            vmax=vmax
         )
         
         # 添加颜色条
@@ -1098,7 +1155,7 @@ class VisualizationGenerator:
         # 设置轴范围
         ax.set_xlim(0, self.cols-1)
         ax.set_ylim(0, self.rows-1)
-        ax.set_zlim(self.min_signal, self.max_signal)
+        ax.set_zlim(vmin, vmax)
         
         # 设置视角
         ax.view_init(elev=elev, azim=azim)
@@ -1119,6 +1176,8 @@ class VisualizationGenerator:
                                              target_time: float,
                                              output_file: str = None,
                                              title: str = "Heatmap with Signal Profiles at Specific Time",
+                                             vmin: float = None,
+                                             vmax: float = None,
                                              middle_row: int = None,
                                              middle_col: int = None,
                                              dpi: int = None):
@@ -1129,6 +1188,8 @@ class VisualizationGenerator:
             target_time: 目标时间点
             output_file: 输出图像文件名，为None时使用默认命名
             title: 图像标题
+            vmin: 颜色映射的最小值，为None时使用初始化时设置的值
+            vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             middle_row: 水平剖面的行索引，为None时使用中间行
             middle_col: 垂直剖面的列索引，为None时使用中间列
             dpi: 图像分辨率，为None时使用对象的默认DPI
@@ -1138,6 +1199,10 @@ class VisualizationGenerator:
         """
         # 使用对象默认DPI或指定DPI
         dpi = dpi or self.dpi
+        
+        # 使用方法参数覆盖默认值
+        vmin = self.vmin if vmin is None else vmin
+        vmax = self.vmax if vmax is None else vmax
         
         # 如果没有指定剖面位置，使用中间行列
         if middle_row is None:
@@ -1179,7 +1244,7 @@ class VisualizationGenerator:
         plt.setp(ax_right.get_yticklabels(), visible=False)
         
         # 设置色彩映射范围
-        norm = Normalize(vmin=self.min_signal, vmax=self.max_signal)
+        norm = Normalize(vmin=vmin, vmax=vmax)
         
         # 绘制热图
         im = ax_heatmap.imshow(
@@ -1197,12 +1262,12 @@ class VisualizationGenerator:
         
         # 水平剖面(固定行，所有列)
         ax_top.plot(range(self.cols), self.grid_data[nearest_idx, middle_row, :], 'b-', lw=2)
-        ax_top.set_ylim(self.min_signal, self.max_signal)
+        ax_top.set_ylim(vmin, vmax)
         ax_top.set_title(f'Row {middle_row} Profile')
         
         # 垂直剖面(所有行，固定列)
         ax_right.plot(self.grid_data[nearest_idx, :, middle_col], range(self.rows), 'r-', lw=2)
-        ax_right.set_xlim(self.min_signal, self.max_signal)
+        ax_right.set_xlim(vmin, vmax)
         ax_right.set_title(f'Column {middle_col} Profile')
         
         # 在热图上显示剖面线
@@ -1231,8 +1296,15 @@ class VisualizationGenerator:
         logger.info(f"带剖面的热图已保存到 {output_path}")
         return output_path
     
-    def generate_all_videos(self, video_quality="high"):
-        """生成所有类型的视频"""
+    def generate_all_videos(self, video_quality="high", vmin=None, vmax=None):
+        """
+        生成所有类型的视频
+        
+        Args:
+            video_quality: 视频质量 ("high" 或 "low")
+            vmin: 颜色映射的最小值，为None时使用初始化时设置的值
+            vmax: 颜色映射的最大值，为None时使用初始化时设置的值
+        """
         logger.info("生成所有类型的视频...")
         
         # 根据视频质量设置参数
@@ -1242,6 +1314,8 @@ class VisualizationGenerator:
         heat_result = self.generate_heatmap_video(
             output_file="heatmap_animation.mp4",
             title="Signal Intensity Over Time",
+            vmin=vmin,
+            vmax=vmax,
             bitrate=bitrate
         )
         
@@ -1250,6 +1324,8 @@ class VisualizationGenerator:
             output_file="3d_surface_animation.mp4",
             title="3D Signal Surface Over Time",
             rotate_view=True,
+            vmin=vmin,
+            vmax=vmax,
             bitrate=bitrate
         )
         
@@ -1257,6 +1333,8 @@ class VisualizationGenerator:
         profile_result = self.generate_heatmap_with_profiles_video(
             output_file="heatmap_with_profiles.mp4",
             title="Heatmap with Signal Profiles",
+            vmin=vmin,
+            vmax=vmax,
             bitrate=bitrate
         )
         
@@ -1299,8 +1377,13 @@ if __name__ == "__main__":
     viz_gen = VisualizationGenerator(
         processed_data=processed_data,
         colormap="viridis",
-        output_folder="./output/videos"
+        output_folder="./output/videos",
+        # 可以在这里设置自定义的colorbar范围
+        vmin=-2.8069029999999988e-08,
+        # vmax=5.183850000000003e-08
+        vmax=1.183850000000003e-08
     )
+    
     # 生成3D表面视频
     viz_gen.generate_3d_surface_video(
         output_file="3d_surface_animation_hot.mp4",
@@ -1309,10 +1392,18 @@ if __name__ == "__main__":
         initial_elev=60,
         initial_azim=45,
         rotation_speed=1.0,
-        full_rotation=True
+        full_rotation=True,
+        # 也可以为单个可视化设置自定义的colorbar范围
+        # vmin=-5.0,
+        # vmax=5.0
     )
-    # # 生成所有视频
-    # viz_gen.generate_all_videos(video_quality="high")
+    
+    # # 生成所有视频，也可以设置统一的colorbar范围
+    # viz_gen.generate_all_videos(
+    #     video_quality="high", 
+    #     vmin=-8.0, 
+    #     vmax=8.0
+    # )
     
     # 生成特定时间点的图像
     middle_time = (processed_data['min_time'] + processed_data['max_time']) / 2
@@ -1320,17 +1411,23 @@ if __name__ == "__main__":
     viz_gen.generate_heatmap_at_time(
         target_time=middle_time,
         output_file="static_heatmap.png",
-        title="特定时间点的信号强度热图"
+        title="特定时间点的信号强度热图",
+        # vmin=-10.0,
+        # vmax=10.0
     )
     
     viz_gen.generate_3d_surface_at_time(
         target_time=middle_time,
         output_file="static_3d_surface.png",
-        title="特定时间点的3D信号表面"
+        title="特定时间点的3D信号表面",
+        # vmin=-5.0,
+        # vmax=5.0
     )
     
     viz_gen.generate_heatmap_with_profiles_at_time(
         target_time=middle_time,
         output_file="static_profiles.png",
-        title="特定时间点的带剖面热图"
+        title="特定时间点的带剖面热图",
+        # vmin=-10.0,
+        # vmax=10.0
     )

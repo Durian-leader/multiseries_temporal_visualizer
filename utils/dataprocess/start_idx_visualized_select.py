@@ -364,8 +364,8 @@ if __name__ == "__main__":
         ]
     )
     # args = parser.parse_args()
-    input_folder = "./output/data2_csv"
-    output_folder = "./output/data2_csv_start-idx-reselected"
+    input_folder = "./output/data_csv"
+    output_folder = "./output/data_csv_start-idx-reselected"
     # Create and run the processor
     processor = StartIdxVisualizedSelect(input_folder, output_folder)
     processor.run()
