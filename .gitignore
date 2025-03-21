@@ -1,0 +1,71 @@
+# Python 缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.venv/
+venv/
+ENV/
+env/
+
+# 发布和分发相关
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 项目数据和输出
+/output/data*_csv*/
+/output/data*_csv_start-idx-reselected*/
+/output/data*_csv_start-idx-reselected_debiased*/
+/videos/
+*.npz
+*.mp4
+*.gif
+*.html
+
+# 日志文件
+/logs/
+*.log
+
+# IDE 和编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+
+# 环境配置文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 大型数据文件 (根据需要自定义)
+/input/data*/
+*.csv
+*.txt
