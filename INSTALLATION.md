@@ -1,5 +1,7 @@
 # Installation Guide
 
+- [简体中文](INSTALLATION_CN.md)
+
 This guide provides instructions for installing all dependencies required to run the Multiseries Temporal Visualizer.
 
 ## Python Requirements

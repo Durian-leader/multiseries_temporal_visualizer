@@ -1,5 +1,7 @@
 # Multiseries Temporal Visualizer
 
+- [简体中文](README_CN.md)
+
 A comprehensive Python toolkit for processing, analyzing, and visualizing multi-series temporal data. This tool specializes in transforming vibration data or other time-series datasets into high-quality visualizations and animations.
 
 ## Features
