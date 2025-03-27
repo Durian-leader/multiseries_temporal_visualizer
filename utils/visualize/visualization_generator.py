@@ -259,6 +259,10 @@ class VisualizationGenerator:
             vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             bitrate: 视频比特率
         """
+        # grid_data_for_heatmap = np.flip(self.grid_data,axis=0)
+
+
+
         output_path = os.path.join(self.output_folder, output_file)
         logger.info(f"生成热图视频: {output_path}")
         
@@ -294,7 +298,7 @@ class VisualizationGenerator:
             norm=norm,
             aspect='equal',
             interpolation='nearest',
-            origin='upper'
+            origin='lower'
         )
         
         # 添加标题 - 调整位置以确保显示
@@ -308,8 +312,8 @@ class VisualizationGenerator:
         ax.set_xticklabels(np.arange(self.cols))
         ax.set_yticklabels(np.arange(self.rows))
         
-        # 添加网格
-        ax.grid(color='black', linestyle='-', linewidth=0.5, alpha=0.3)
+        # # 添加网格
+        # ax.grid(color='black', linestyle='-', linewidth=0.5, alpha=0.3)
         
         # 添加时间戳
         if add_timestamp:
@@ -460,7 +464,7 @@ class VisualizationGenerator:
         
         # 设置轴范围
         ax.set_xlim(0, self.cols-1)
-        ax.set_ylim(0, self.rows-1)
+        ax.set_ylim(self.rows-1, 0)
         ax.set_zlim(vmin, vmax)
         
         # 设置初始视角
@@ -545,7 +549,7 @@ class VisualizationGenerator:
             
             # 设置轴范围
             ax.set_xlim(0, self.cols-1)
-            ax.set_ylim(0, self.rows-1)
+            ax.set_ylim(self.rows-1, 0)
             ax.set_zlim(vmin, vmax)
             
             # 添加时间戳
@@ -604,22 +608,10 @@ class VisualizationGenerator:
             progress_callback=progress_callback,
             ffmpeg_params=ffmpeg_params
         )
-        
-        # 关闭图形
-        plt.close(fig)
-        
-        if output_file:
-            logger.info(f"3D表面视频已处理完成")
-            return output_file
-        else:
-            logger.warning("3D表面视频保存失败")
-            return None
             
         # 关闭图形
         plt.close(fig)
-        
-        logger.info(f"3D表面视频已处理完成")
-        
+                
         # 根据实际保存的文件返回不同的路径
         if os.path.exists(output_path):
             logger.info(f"3D表面视频已保存到 {output_path}")
@@ -642,7 +634,9 @@ class VisualizationGenerator:
                                            add_timestamp: bool = True,
                                            vmin: float = None,
                                            vmax: float = None,
-                                           bitrate: str = "8000k"):
+                                           bitrate: str = "8000k",
+                                           profile_row: int = None,
+                                           profile_col: int = None):
         """
         生成带有横纵剖面的热图动画视频
         
@@ -653,6 +647,8 @@ class VisualizationGenerator:
             vmin: 颜色映射的最小值，为None时使用初始化时设置的值
             vmax: 颜色映射的最大值，为None时使用初始化时设置的值
             bitrate: 视频比特率
+            profile_row: 固定的剖面行 (默认为中间行)
+            profile_col: 固定的剖面列 (默认为中间列)
         """
         output_path = os.path.join(self.output_folder, output_file)
         logger.info(f"生成带剖面的热图视频: {output_path}")
@@ -686,7 +682,7 @@ class VisualizationGenerator:
             norm=norm,
             aspect='equal',
             interpolation='nearest',
-            origin='upper'
+            origin='lower'
         )
         
         # 添加颜色条
@@ -694,8 +690,8 @@ class VisualizationGenerator:
         cbar.set_label('Signal Value')
         
         # 初始化剖面图 - 中间行和中间列
-        middle_row = self.rows // 2
-        middle_col = self.cols // 2
+        middle_row = self.rows // 2 if profile_row is None else profile_row
+        middle_col = self.cols // 2 if profile_col is None else profile_col
         
         # 水平剖面(固定行，所有列)
         line_top, = ax_top.plot(range(self.cols), self.grid_data[0, middle_row, :], 'b-', lw=2)
@@ -945,7 +941,7 @@ class VisualizationGenerator:
             norm=norm,
             aspect='equal',
             interpolation='nearest',
-            origin='upper'
+            origin='lower'
         )
         
         # 添加颜色条
@@ -968,8 +964,8 @@ class VisualizationGenerator:
         ax.set_xticklabels(np.arange(self.cols))
         ax.set_yticklabels(np.arange(self.rows))
         
-        # 添加网格
-        ax.grid(color='black', linestyle='-', linewidth=0.5, alpha=0.3)
+        # # 添加网格
+        # ax.grid(color='black', linestyle='-', linewidth=0.5, alpha=0.3)
         
         # 调整布局
         plt.tight_layout(rect=[0, 0, 1, 0.93])
@@ -1154,7 +1150,7 @@ class VisualizationGenerator:
         
         # 设置轴范围
         ax.set_xlim(0, self.cols-1)
-        ax.set_ylim(0, self.rows-1)
+        ax.set_ylim(self.rows-1, 0)
         ax.set_zlim(vmin, vmax)
         
         # 设置视角
@@ -1180,7 +1176,9 @@ class VisualizationGenerator:
                                              vmax: float = None,
                                              middle_row: int = None,
                                              middle_col: int = None,
-                                             dpi: int = None):
+                                             dpi: int = None,
+                                             profile_row: int = None,
+                                             profile_col: int = None):
         """
         根据指定时间生成带有横纵剖面的热图静态图像
         
@@ -1193,6 +1191,8 @@ class VisualizationGenerator:
             middle_row: 水平剖面的行索引，为None时使用中间行
             middle_col: 垂直剖面的列索引，为None时使用中间列
             dpi: 图像分辨率，为None时使用对象的默认DPI
+            profile_row: 水平剖面的行索引，为None时使用中间行
+            profile_col: 垂直剖面的列索引，为None时使用中间列
         
         Returns:
             str: 生成的图像文件路径
@@ -1211,8 +1211,8 @@ class VisualizationGenerator:
             middle_col = self.cols // 2
             
         # 确保剖面索引在有效范围内
-        middle_row = max(0, min(middle_row, self.rows - 1))
-        middle_col = max(0, min(middle_col, self.cols - 1))
+        middle_row = max(0, min(middle_row, self.rows - 1)) if profile_row is None else profile_row
+        middle_col = max(0, min(middle_col, self.cols - 1)) if profile_col is None else profile_col
         
         # 如果没有指定输出文件名，生成默认文件名
         if output_file is None:
@@ -1253,7 +1253,7 @@ class VisualizationGenerator:
             norm=norm,
             aspect='equal',
             interpolation='nearest',
-            origin='upper'
+            origin='lower'
         )
         
         # 添加颜色条

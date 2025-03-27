@@ -265,15 +265,20 @@ class DataProcessor:
         
         try:
             data = np.load(input_file, allow_pickle=True)
-            
+
+            self.rows = int(data['rows'])
+            self.cols = int(data['cols'])
+            self.use_all_points = True
+            self.sampling_points = len(data['time_points'])
+
             self.grid_data = data['grid_data']
             self.time_points = data['time_points']
             self.min_signal = float(data['min_signal'])
             self.max_signal = float(data['max_signal'])
             self.min_time = float(data['min_time'])
             self.max_time = float(data['max_time'])
-            self.rows = int(data['rows'])
-            self.cols = int(data['cols'])
+
+
             
             # 加载文件名网格（如果存在）
             if 'filename_grid' in data:

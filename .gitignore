@@ -34,9 +34,8 @@ wheels/
 MANIFEST
 
 # 项目数据和输出
-/output/data*_csv*/
-/output/data*_csv_start-idx-reselected*/
-/output/data*_csv_start-idx-reselected_debiased*/
+/input/
+/output/
 /videos/
 *.npz
 *.mp4
