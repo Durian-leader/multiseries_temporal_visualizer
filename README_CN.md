@@ -2,6 +2,11 @@
 
 这是一个全面的Python工具包，用于处理、分析和可视化多序列时间数据。该工具专注于将振动数据或其他时间序列数据集转换为高质量的可视化效果和动画。
 
+效果演示：
+- https://youtu.be/eMQt-ECYRZA
+- https://youtu.be/zs1seIiErXs
+- https://youtu.be/VFoZmemtraI
+
 ## 功能特点
 
 - **数据处理流程**：将原始数据文件转换为同步的、便于分析的格式

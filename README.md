@@ -4,6 +4,11 @@
 
 A comprehensive Python toolkit for processing, analyzing, and visualizing multi-series temporal data. This tool specializes in transforming vibration data or other time-series datasets into high-quality visualizations and animations.
 
+Demo:
+- https://youtu.be/eMQt-ECYRZA
+- https://youtu.be/zs1seIiErXs
+- https://youtu.be/VFoZmemtraI
+
 ## Features
 
 - **Data Processing Pipeline**: Transform raw data files into synchronized, analysis-ready formats
