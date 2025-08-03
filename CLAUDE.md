@@ -16,11 +16,27 @@ pip install numpy pandas matplotlib scipy pywt loguru tqdm pathlib
 
 ### Data Processing Workflow
 
-#### Main Processing Pipeline
+#### Integrated Pipeline (Recommended)
+```bash
+# Use the integrated Jupyter notebook for complete pipeline
+jupyter notebook main.ipynb
+# OR
+jupyter lab main.ipynb
+```
+The `main.ipynb` notebook provides a complete, interactive pipeline that integrates all processing steps with proper error handling, progress tracking, and data validation.
+
+#### Manual Processing Pipeline (Individual Scripts)
 ```bash
 # Step 1: Select start indices for data alignment (input: 原始数据文件)
 python python_数据预处理与可视化/00select_start_idx.py
 # Output: 一系列csv文件 (中间数据)
+
+# Step 1.5: Manual baseline correction (optional, inserted between step 1 and 2)
+# Automatic mode: Uses first and last points for linear baseline correction
+python python_数据预处理与可视化/00_5_manual_baseline_correction.py -i <input_csv_folder> -o <output_csv_folder> -a -v
+# Manual mode: Opens GUI for manual baseline point selection for each file
+python python_数据预处理与可视化/00_5_manual_baseline_correction.py -i <input_csv_folder> -o <output_csv_folder> -m -v
+# Output: 基线矫正后的csv文件 (baseline corrected CSV files)
 
 # Step 2a: Generate grid data for video processing (5-point sampling)
 python python_数据预处理与可视化/01sample.py
@@ -99,6 +115,33 @@ main03_heatmapwithprofile.m  % Heat maps with cross-sectional profiles
 3. **Profile Analysis**: Cross-sectional views with heat maps
 4. **Static Snapshots**: Individual time-point visualizations
 
+## Jupyter Notebook Pipeline
+
+The `main.ipynb` notebook provides an integrated, user-friendly interface for the complete data processing pipeline:
+
+### Features
+- **Interactive Configuration**: Easy parameter adjustment through configuration cells
+- **Progress Tracking**: Real-time status updates and progress indicators  
+- **Error Handling**: Comprehensive error checking and recovery mechanisms
+- **Data Validation**: Automatic verification of inputs, outputs, and intermediate results
+- **Flexible Baseline Correction**: Choose between automatic, manual, or skip modes
+- **Data Visualization**: Built-in preview and validation of processed data
+- **MATLAB Integration**: Direct preparation of MAT files for MATLAB visualization
+
+### Usage Instructions
+1. Open the notebook: `jupyter notebook main.ipynb`
+2. Configure parameters in Section 2 (paths, grid dimensions, processing options)
+3. Run cells sequentially or use "Run All" for complete pipeline
+4. Monitor progress and check results in each step
+5. Use generated MAT file with MATLAB visualization scripts
+
+### Pipeline Steps in Notebook
+1. **Environment Setup**: Library imports and configuration
+2. **Data Preprocessing**: Raw TXT to CSV conversion with denoising
+3. **Baseline Correction**: Optional automatic or manual baseline adjustment
+4. **Format Conversion**: CSV to NPZ to MAT format conversion
+5. **Validation**: Data integrity checks and visualization preview
+
 ## Important Implementation Details
 
 ### Memory Management
@@ -125,11 +168,12 @@ main03_heatmapwithprofile.m  % Heat maps with cross-sectional profiles
 
 ### Primary Data Processing Pipeline
 1. **原始数据文件 (Raw Data)** → `00select_start_idx.py` → **一系列csv文件 (CSV Series)**
-2. **CSV Series** → `01sample.py` → **outputmy_processed_data_5_00points.npz (5-point Grid)**
-3. **CSV Series** → `01csv2npz.py` → **outputmy_processed_data_use_all_points.npz (Full Grid)**
-4. **5-point Grid** → `03video.py` → **可视化的视频 (Visualization Videos)**
-5. **Full Grid** → `02picture.py` → **某个时刻的可视化 + CSV Export**
-6. **NPZ Files** → `npz_to_mat.py` → **matlab可用 (MATLAB Format)** → **可视化的视频**
+2. **CSV Series** → `00_5_manual_baseline_correction.py` → **基线矫正后的csv文件 (Baseline Corrected CSV)**
+3. **Baseline Corrected CSV** → `01sample.py` → **outputmy_processed_data_5_00points.npz (5-point Grid)**
+4. **Baseline Corrected CSV** → `01csv2npz.py` → **outputmy_processed_data_use_all_points.npz (Full Grid)**
+5. **5-point Grid** → `03video.py` → **可视化的视频 (Visualization Videos)**
+6. **Full Grid** → `02picture.py` → **某个时刻的可视化 + CSV Export**
+7. **NPZ Files** → `npz_to_mat.py` → **matlab可用 (MATLAB Format)** → **可视化的视频**
 
 ### Optional Processing Branches
 - **Any Stage** → `baseline_correction.py` → **去偏置后可优化 (Debiased Data)**
