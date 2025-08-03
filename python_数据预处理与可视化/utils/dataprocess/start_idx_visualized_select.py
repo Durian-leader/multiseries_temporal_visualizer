@@ -19,9 +19,20 @@ matplotlib.use('TkAgg')  # Use TkAgg backend which has good button support
 
 
 class StartIdxVisualizedSelect:
-    def __init__(self, input_folder, output_folder):
+    def __init__(self, input_folder, output_folder, vg_delay=0.0025):
+        """
+        Initialize the StartIdxVisualizedSelect class.
+        
+        Args:
+            input_folder (str): Path to input folder containing data files
+            output_folder (str): Path to output folder for processed files
+            vg_delay (float): Time offset in seconds to apply to Vg files during reading for signal alignment.
+                            This creates a "what you see is what you get" experience where visual alignment 
+                            corresponds to actual data alignment. (default: 0.0025s = 2.5ms)
+        """
         self.input_folder = input_folder
         self.output_folder = output_folder
+        self.vg_delay = vg_delay
         self.current_file = None
         self.current_vg_file = None  # The Vg file used for visualization
         self.data = None  # Data from original file (for trimming)
@@ -35,6 +46,14 @@ class StartIdxVisualizedSelect:
         self.current_file_index = 0
         self.btn_next = None
         self.btn_skip = None
+        self.btn_reset = None
+        
+        # Zoom and pan functionality
+        self.zoom_factor = 1.1
+        self.original_xlim = None
+        self.original_ylim_ax = None
+        self.original_ylim_ax2 = None
+        self.press_event = None
         
         # Find all TXT and CSV files in the input folder
         txt_files = glob.glob(os.path.join(self.input_folder, "*.txt"))
@@ -73,6 +92,7 @@ class StartIdxVisualizedSelect:
                 logger.warning(f"未找到对应的Vg文件: {filename}")
         
         logger.info(f"找到 {len(self.files_to_process)} 个有Vg配对的数据文件")
+        logger.info(f"Vg信号延时设置: {self.vg_delay*1000:.1f}ms")
         
         # Create the output folder if it doesn't exist
         os.makedirs(self.output_folder, exist_ok=True)
@@ -81,8 +101,13 @@ class StartIdxVisualizedSelect:
         plt.ion()
     
     def read_data_file(self, file_path):
-        """Read data from a file (TXT or CSV) using standard parsing"""
+        """
+        Read data from a file (TXT or CSV) using standard parsing.
+        Automatically applies vg_delay to Vg files (files ending with 'V.txt' or 'V.csv').
+        """
         file_ext = os.path.splitext(file_path)[1].lower()
+        filename = os.path.basename(file_path)
+        is_vg_file = filename.endswith('V.txt') or filename.endswith('V.csv')
         
         try:
             # If it's a CSV file, try to read it directly first
@@ -91,6 +116,13 @@ class StartIdxVisualizedSelect:
                     data = pd.read_csv(file_path)
                     if not data.empty:
                         logger.info(f"成功读取CSV文件: {file_path}")
+                        
+                        # Apply time delay to Vg files for signal alignment
+                        if is_vg_file and self.vg_delay != 0:
+                            time_col = data.columns[0]
+                            data[time_col] = data[time_col] + self.vg_delay
+                            logger.debug(f"已对Vg文件应用 {self.vg_delay*1000:.1f}ms 时间偏移")
+                        
                         return data
                 except Exception as e:
                     logger.warning(f"无法正常读取CSV文件，尝试替代方法: {e}")
@@ -109,6 +141,13 @@ class StartIdxVisualizedSelect:
                                     # Check if this worked by seeing if we have numeric data
                                     if data.select_dtypes(include=[np.number]).shape[1] > 0:
                                         logger.debug(f"使用分隔符'{delimiter}'和头行{i}成功读取{file_path}")
+                                        
+                                        # Apply time delay to Vg files for signal alignment
+                                        if is_vg_file and self.vg_delay != 0:
+                                            time_col = data.columns[0]
+                                            data[time_col] = data[time_col] + self.vg_delay
+                                            logger.debug(f"已对Vg文件应用 {self.vg_delay*1000:.1f}ms 时间偏移")
+                                        
                                         return data
                                 except:
                                     continue
@@ -119,6 +158,12 @@ class StartIdxVisualizedSelect:
                         # Try to convert all columns to numeric
                         for col in data.columns:
                             data[col] = pd.to_numeric(data[col], errors='ignore')
+                        
+                        # Apply time delay to Vg files for signal alignment
+                        if is_vg_file and self.vg_delay != 0:
+                            time_col = data.columns[0]
+                            data[time_col] = data[time_col] + self.vg_delay
+                            logger.debug(f"已对Vg文件应用 {self.vg_delay*1000:.1f}ms 时间偏移")
                             
                         return data
                 except Exception as e:
@@ -182,11 +227,19 @@ class StartIdxVisualizedSelect:
                     df.columns = header_parts
             
             logger.info(f"成功解析文本文件 {file_path}")
+            
+            # Apply time delay to Vg files for signal alignment
+            if is_vg_file and self.vg_delay != 0:
+                time_col = df.columns[0]
+                df[time_col] = df[time_col] + self.vg_delay
+                logger.debug(f"已对Vg文件应用 {self.vg_delay*1000:.1f}ms 时间偏移")
+            
             return df
         
         except Exception as e:
             logger.error(f"读取文件{file_path}时出错: {e}")
             return None
+    
     
     def _is_number(self, s):
         """Check if string can be converted to a number"""
@@ -220,6 +273,127 @@ class StartIdxVisualizedSelect:
         # Redraw the canvas
         self.fig.canvas.draw_idle()
     
+    def _combined_button_press(self, event):
+        """Combined handler for button press events"""
+        # Handle selection (left click without modifiers)
+        if event.button == 1 and event.key != 'shift':
+            self.on_click(event)
+        
+        # Handle panning setup (all button presses)
+        self.on_press(event)
+    
+    def on_scroll(self, event):
+        """Handle mouse scroll events for zooming"""
+        if event.inaxes not in [self.ax, getattr(self, 'ax2', None)]:
+            return
+        
+        # Get the current axis limits
+        cur_xlim = self.ax.get_xlim()
+        cur_ylim_ax = self.ax.get_ylim()
+        if hasattr(self, 'ax2'):
+            cur_ylim_ax2 = self.ax2.get_ylim()
+        
+        # Get mouse position
+        xdata = event.xdata
+        ydata = event.ydata
+        
+        if xdata is None or ydata is None:
+            return
+        
+        # Calculate zoom
+        if event.button == 'up':
+            # Zoom in
+            scale_factor = 1 / self.zoom_factor
+        elif event.button == 'down':
+            # Zoom out
+            scale_factor = self.zoom_factor
+        else:
+            return
+        
+        # Calculate new limits centered on mouse position
+        new_xlim = [xdata - (xdata - cur_xlim[0]) * scale_factor,
+                    xdata - (xdata - cur_xlim[1]) * scale_factor]
+        
+        # Apply zoom to both subplots with synchronized x-axis
+        self.ax.set_xlim(new_xlim)
+        if hasattr(self, 'ax2'):
+            self.ax2.set_xlim(new_xlim)
+        
+        # For y-axis, zoom based on which subplot was scrolled on
+        if event.inaxes == self.ax:
+            new_ylim_ax = [ydata - (ydata - cur_ylim_ax[0]) * scale_factor,
+                          ydata - (ydata - cur_ylim_ax[1]) * scale_factor]
+            self.ax.set_ylim(new_ylim_ax)
+        elif hasattr(self, 'ax2') and event.inaxes == self.ax2:
+            new_ylim_ax2 = [ydata - (ydata - cur_ylim_ax2[0]) * scale_factor,
+                           ydata - (ydata - cur_ylim_ax2[1]) * scale_factor]
+            self.ax2.set_ylim(new_ylim_ax2)
+        
+        self.fig.canvas.draw_idle()
+    
+    def on_press(self, event):
+        """Handle mouse press events for panning"""
+        if event.inaxes not in [self.ax, getattr(self, 'ax2', None)]:
+            return
+        
+        # Store the press event for panning
+        self.press_event = event
+    
+    def on_motion(self, event):
+        """Handle mouse motion events for panning"""
+        if self.press_event is None or event.inaxes not in [self.ax, getattr(self, 'ax2', None)]:
+            return
+        
+        # Only pan if middle mouse button or shift+left mouse button is pressed
+        if event.button == 2 or (event.button == 1 and (event.key == 'shift')):
+            # Calculate the movement
+            dx = event.xdata - self.press_event.xdata
+            dy = event.ydata - self.press_event.ydata
+            
+            if dx is None or dy is None:
+                return
+            
+            # Get current limits
+            cur_xlim = self.ax.get_xlim()
+            cur_ylim_ax = self.ax.get_ylim()
+            if hasattr(self, 'ax2'):
+                cur_ylim_ax2 = self.ax2.get_ylim()
+            
+            # Pan x-axis for both subplots (synchronized)
+            new_xlim = [cur_xlim[0] - dx, cur_xlim[1] - dx]
+            self.ax.set_xlim(new_xlim)
+            if hasattr(self, 'ax2'):
+                self.ax2.set_xlim(new_xlim)
+            
+            # Pan y-axis based on which subplot is being dragged
+            if event.inaxes == self.ax:
+                new_ylim_ax = [cur_ylim_ax[0] - dy, cur_ylim_ax[1] - dy]
+                self.ax.set_ylim(new_ylim_ax)
+            elif hasattr(self, 'ax2') and event.inaxes == self.ax2:
+                new_ylim_ax2 = [cur_ylim_ax2[0] - dy, cur_ylim_ax2[1] - dy]
+                self.ax2.set_ylim(new_ylim_ax2)
+            
+            self.fig.canvas.draw_idle()
+    
+    def on_release(self, event):
+        """Handle mouse release events"""
+        self.press_event = None
+    
+    def reset_view(self):
+        """Reset view to original limits"""
+        if self.original_xlim is not None:
+            self.ax.set_xlim(self.original_xlim)
+            if hasattr(self, 'ax2'):
+                self.ax2.set_xlim(self.original_xlim)
+        
+        if self.original_ylim_ax is not None:
+            self.ax.set_ylim(self.original_ylim_ax)
+        
+        if self.original_ylim_ax2 is not None and hasattr(self, 'ax2'):
+            self.ax2.set_ylim(self.original_ylim_ax2)
+        
+        self.fig.canvas.draw_idle()
+    
     def save_current_file(self):
         """Save the current data as CSV after trimming to the selected point"""
         if self.data is None or self.selected_point is None:
@@ -227,7 +401,7 @@ class StartIdxVisualizedSelect:
             return False
         
         # Find the closest data point to the selected x position
-        # Note: We use the original data (self.data) for trimming, not the Vg data
+        # Note: Both signals are now aligned in time domain, so we can directly use the selected point
         if isinstance(self.data, pd.DataFrame):
             # If using DataFrame with time as first column
             time_col = self.data.columns[0]
@@ -253,7 +427,7 @@ class StartIdxVisualizedSelect:
         
         # Save as CSV with headers
         trimmed_data.to_csv(output_file, index=False)
-        logger.success(f"已保存截断数据到 {output_file} (基于Vg文件选择的起始点)")
+        logger.success(f"已保存截断数据到 {output_file} (基于视觉对齐选择的起始点)")
         return True
     
     def on_next(self, event=None):
@@ -275,17 +449,20 @@ class StartIdxVisualizedSelect:
         # Adjust for dual subplot layout
         plt.subplots_adjust(bottom=0.15)  # Make room for buttons
         
-        # Create button axes
-        ax_next = plt.axes([0.7, 0.02, 0.2, 0.06])
-        ax_skip = plt.axes([0.3, 0.02, 0.2, 0.06])
+        # Create button axes - now with three buttons
+        ax_next = plt.axes([0.75, 0.02, 0.15, 0.06])
+        ax_skip = plt.axes([0.55, 0.02, 0.15, 0.06])
+        ax_reset = plt.axes([0.05, 0.02, 0.15, 0.06])
         
         # Create buttons with visible styling
         self.btn_next = Button(ax_next, 'Save & Next', color='lightblue', hovercolor='skyblue')
         self.btn_skip = Button(ax_skip, 'Skip File', color='lightgray', hovercolor='gray')
+        self.btn_reset = Button(ax_reset, 'Reset View', color='lightgreen', hovercolor='green')
         
         # Connect button events
         self.btn_next.on_clicked(self.on_next)
         self.btn_skip.on_clicked(self.on_skip)
+        self.btn_reset.on_clicked(lambda event: self.reset_view())
         
         # Add keyboard shortcuts as an alternative
         self.fig.canvas.mpl_connect('key_press_event', self.on_key_press)
@@ -298,6 +475,9 @@ class StartIdxVisualizedSelect:
         elif event.key == 'k':
             # 'k' key for skip
             self.on_skip()
+        elif event.key == 'r':
+            # 'r' key for reset view
+            self.reset_view()
     
     def process_next_file(self):
         """Process the next file in the list"""
@@ -322,6 +502,7 @@ class StartIdxVisualizedSelect:
         logger.info(f"对应的Vg文件: {self.current_vg_file}")
         
         # Read both the original data and the Vg data
+        # Note: Vg data will automatically have time offset applied during reading
         self.data = self.read_data_file(self.current_file)
         self.vg_data = self.read_data_file(self.current_vg_file)
         
@@ -345,8 +526,11 @@ class StartIdxVisualizedSelect:
         # Create buttons
         self.create_buttons()
         
-        # Connect the mouse click event to both axes
-        self.fig.canvas.mpl_connect('button_press_event', self.on_click)
+        # Connect all mouse and keyboard events
+        self.fig.canvas.mpl_connect('button_press_event', self._combined_button_press)
+        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
+        self.fig.canvas.mpl_connect('motion_notify_event', self.on_motion)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
         
         # Reset vertical lines
         self.vertical_line = None
@@ -356,16 +540,22 @@ class StartIdxVisualizedSelect:
         self._plot_both_signals()
         
         # Set titles
-        self.ax.set_title(f"Vg Signal: {os.path.basename(self.current_vg_file)} (用于选择起始点)")
+        delay_info = f"延时{self.vg_delay*1000:.1f}ms" if self.vg_delay != 0 else "无延时"
+        self.ax.set_title(f"Vg Signal: {os.path.basename(self.current_vg_file)} ({delay_info})")
         self.ax2.set_title(f"Original Signal: {os.path.basename(self.current_file)} ({self.current_file_index}/{len(self.files_to_process)})")
 
         self.ax.grid(True)
         self.ax2.grid(True)
         
+        # Store original view limits for reset functionality
+        self.original_xlim = self.ax.get_xlim()
+        self.original_ylim_ax = self.ax.get_ylim()
+        self.original_ylim_ax2 = self.ax2.get_ylim()
+        
         # Show instructions
-        plt.figtext(0.5, 0.08, "Click on either graph to select starting point. Red line shows selected position on both signals.", 
+        plt.figtext(0.5, 0.10, "Click to select starting point. Scroll wheel: zoom | Shift+drag: pan | 'r': reset view", 
                    ha='center', fontsize=9)
-        plt.figtext(0.5, 0.05, "Press 'n' to save & next, 'k' to skip file", 
+        plt.figtext(0.5, 0.07, "Keys: 'n' = save & next | 'k' = skip | 'r' = reset view", 
                    ha='center', fontsize=8)
         
         # Show the plot
@@ -497,5 +687,6 @@ if __name__ == "__main__":
     input_folder = "./output/data_csv"
     output_folder = "./output/data_csv_start-idx-reselected"
     # Create and run the processor
-    processor = StartIdxVisualizedSelect(input_folder, output_folder)
+    # vg_delay: Vg信号延时，默认2.5ms用于信号对齐
+    processor = StartIdxVisualizedSelect(input_folder, output_folder, vg_delay=0.0025)
     processor.run()

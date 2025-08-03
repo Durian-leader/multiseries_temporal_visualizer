@@ -38,7 +38,8 @@ denoiser.denoise_csv_batch(
 logger.info("开始进行数据起始点选择")
 processor_idx = StartIdxVisualizedSelect(
     "./output/data_csv_denoised",  # 包含CSV文件的输入文件夹
-    "./output/data_csv_denoised_start-idx-reselected"  # 处理后文件的输出文件夹
+    "./output/data_csv_denoised_start-idx-reselected",  # 处理后文件的输出文件夹
+    vg_delay=0.0025  # Vg信号延时2.5ms用于信号对齐
 )
 processor_idx.run()
 
