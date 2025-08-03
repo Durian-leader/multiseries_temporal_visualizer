@@ -85,6 +85,19 @@ rowLabels = 2:5;
 profile_row = 3;    % 默认选择第3行进行剖视图展示
 profile_col = 3;    % 默认选择第3列进行剖视图展示
 
+% Vg电压波形参数设置
+vg_config.window_length = 1;    % 显示的时间窗口长度(秒)
+vg_config.top_voltage = 5;       % 顶部电压(V)
+vg_config.bottom_voltage = -5;   % 底部电压(V)
+vg_config.top_time = 0.1515151515;          % 顶部持续时间(秒)
+vg_config.bottom_time = 0.1515151515;       % 底部持续时间(秒)
+vg_config.period = vg_config.top_time + vg_config.bottom_time;  % 周期
+
+% 生成Vg电压波形函数
+generate_vg_waveform = @(t) vg_config.bottom_voltage + ...
+    (vg_config.top_voltage - vg_config.bottom_voltage) * ...
+    (mod(t, vg_config.period) < vg_config.top_time);
+
 % 创建一个图形窗口，设置较大的尺寸以匹配Python版本的布局
 fig = figure('Position', [100, 100, 1400, 1000], 'Color', 'w');
 
@@ -98,8 +111,11 @@ heatmap_pos = [0.1, 0.1, 0.6, 0.6];
 % 顶部剖面图位置 - 与主热图对齐
 top_profile_pos = [0.1, 0.75, 0.6, 0.15];
 
-% 右侧剖面图位置 - 与主热图对齐
+% 右侧剖面图位置 - 与主热图对齐，保持原始大小
 right_profile_pos = [0.75, 0.1, 0.15, 0.6];
+
+% Vg电压波形图位置 - 右上角，进一步缩小高度避免文字重叠
+vg_waveform_pos = [0.75, 0.78, 0.15, 0.12];
 
 % 对每个时间点绘制热图并保存到视频
 for i = 1:numFrames
@@ -160,6 +176,48 @@ for i = 1:numFrames
     ylim([min(rowLabels), max(rowLabels)]);
     set(ax_right, 'YTickLabel', []);  % 隐藏Y轴刻度标签
     grid on;
+    
+    % Vg电压波形图 - 右上角
+    ax_vg = axes('Position', vg_waveform_pos);
+    
+    % 当前时间
+    current_time = timepoints(i);
+    
+    % 计算时间窗口 - 当前时间在窗口中心
+    window_start = current_time - vg_config.window_length / 2;
+    window_end = current_time + vg_config.window_length / 2;
+    
+    % 生成时间向量和对应的电压值（过去部分）
+    past_time_vec = linspace(window_start, current_time, 200);
+    past_voltage_vec = arrayfun(generate_vg_waveform, past_time_vec);
+    
+    % 绘制过去的波形（蓝色实线）
+    plot(past_time_vec - current_time, past_voltage_vec, 'b-', 'LineWidth', 2);
+    hold on;
+    
+    % 绘制当前时间点（红色圆点，在x轴中心位置）
+    current_voltage = generate_vg_waveform(current_time);
+    plot(0, current_voltage, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
+    
+    % 设置坐标轴
+    xlim([-vg_config.window_length/2, vg_config.window_length/2]);
+    ylim([vg_config.bottom_voltage - 0.5, vg_config.top_voltage + 0.5]);
+    
+    % 设置y轴刻度为顶部和底部电压
+    yticks([vg_config.bottom_voltage, vg_config.top_voltage]);
+    yticklabels({[num2str(vg_config.bottom_voltage), 'V'], [num2str(vg_config.top_voltage), 'V']});
+    
+    % 添加网格和标签
+    grid on;
+    xlabel('Rel. Time (s)', 'FontSize', 10);
+    ylabel('Vg (V)', 'FontSize', 10);
+    title('Drive Voltage Vg', 'FontSize', 12, 'FontWeight', 'bold');
+    
+    % 设置坐标轴样式
+    ax_vg.FontSize = 9;
+    ax_vg.Box = 'on';
+    
+    hold off;
     
     % 添加总标题
     sgtitle(['Heatmap with Signal Profiles - Time: ', num2str(timepoints(i)), ' sec'], 'FontSize', 16, 'FontWeight', 'bold');

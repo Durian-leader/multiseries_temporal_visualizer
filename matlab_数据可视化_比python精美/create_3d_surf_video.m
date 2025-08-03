@@ -21,6 +21,8 @@ function create_3d_surf_video(data3D, varargin)
 %   'TimePoints'    - 时间点数组，默认为帧索引 1:numFrames
 %   'TimeUnit'      - 时间单位字符串，默认为空
 %   'FigureSize'    - 图窗大小 [宽, 高]，默认为 [1280, 720]
+%   'ShowVg'        - 是否显示Vg电压波形，默认为 true
+%   'VgConfig'      - Vg电压参数结构体，包含window_length, top_voltage, bottom_voltage, top_time, bottom_time
 
 % 解析输入参数
 p = inputParser;
@@ -36,6 +38,13 @@ defaultViewAngles = [30, 30];
 defaultTimePoints = []; 
 defaultTimeUnit = '';   
 defaultFigureSize = [1280, 720]; % 新增：图窗大小参数
+defaultShowVg = true;
+defaultVgConfig.window_length = 1;
+defaultVgConfig.top_voltage = 5;
+defaultVgConfig.bottom_voltage = -5;
+defaultVgConfig.top_time = 0.1515151515;
+defaultVgConfig.bottom_time = 0.1515151515;
+defaultVgConfig.period = defaultVgConfig.top_time + defaultVgConfig.bottom_time;
 
 addRequired(p, 'data3D');
 addParameter(p, 'FileName', defaultFileName, @ischar);
@@ -50,6 +59,8 @@ addParameter(p, 'ViewAngles', defaultViewAngles, @isnumeric);
 addParameter(p, 'TimePoints', defaultTimePoints);
 addParameter(p, 'TimeUnit', defaultTimeUnit, @ischar);
 addParameter(p, 'FigureSize', defaultFigureSize, @isnumeric); % 新增：图窗大小参数
+addParameter(p, 'ShowVg', defaultShowVg, @islogical);
+addParameter(p, 'VgConfig', defaultVgConfig, @isstruct);
 
 parse(p, data3D, varargin{:});
 args = p.Results;
@@ -128,15 +139,38 @@ else
     timeFormat = 'Time: %.2f';
 end
 
+% 生成Vg电压波形函数（如果需要显示Vg）
+if args.ShowVg
+    vg_config = args.VgConfig;
+    generate_vg_waveform = @(t) vg_config.bottom_voltage + ...
+        (vg_config.top_voltage - vg_config.bottom_voltage) * ...
+        (mod(t, vg_config.period) < vg_config.top_time);
+end
+
 % 创建动画
 fprintf('开始创建视频，共 %d 帧...\n', numFrames);
 
 for frame = 1:numFrames
-    % 获取当前帧的数据
-    Z = squeeze(data3D(frame, :, :));
-
-    % 创建表面图
-    surf(X, Y, Z);
+    % 清除图形
+    clf;
+    
+    % 如果显示Vg波形，创建子图布局
+    if args.ShowVg
+        % 主3D图 - 占据大部分空间
+        ax_main = subplot('Position', [0.1, 0.15, 0.65, 0.75]);
+        
+        % 获取当前帧的数据
+        Z = squeeze(data3D(frame, :, :));
+        
+        % 创建表面图
+        surf(X, Y, Z);
+    else
+        % 获取当前帧的数据
+        Z = squeeze(data3D(frame, :, :));
+        
+        % 创建表面图（全屏）
+        surf(X, Y, Z);
+    end
 
     % 原始 RdYlBu（红→白→蓝）
     cmap_raw = [
@@ -197,6 +231,51 @@ for frame = 1:numFrames
 
     % 添加颜色条
     colorbar;
+    
+    % 如果显示Vg波形，添加Vg子图
+    if args.ShowVg
+        % Vg电压波形图 - 右侧
+        ax_vg = subplot('Position', [0.8, 0.6, 0.15, 0.3]);
+        
+        % 当前时间
+        current_time = timePoints(frame);
+        
+        % 计算时间窗口 - 当前时间在窗口中心
+        window_start = current_time - vg_config.window_length / 2;
+        window_end = current_time + vg_config.window_length / 2;
+        
+        % 生成时间向量和对应的电压值（过去部分）
+        past_time_vec = linspace(window_start, current_time, 200);
+        past_voltage_vec = arrayfun(generate_vg_waveform, past_time_vec);
+        
+        % 绘制过去的波形（蓝色实线）
+        plot(past_time_vec - current_time, past_voltage_vec, 'b-', 'LineWidth', 2);
+        hold on;
+        
+        % 绘制当前时间点（红色圆点，在x轴中心位置）
+        current_voltage = generate_vg_waveform(current_time);
+        plot(0, current_voltage, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
+        
+        % 设置坐标轴
+        xlim([-vg_config.window_length/2, vg_config.window_length/2]);
+        ylim([vg_config.bottom_voltage - 0.5, vg_config.top_voltage + 0.5]);
+        
+        % 设置y轴刻度为顶部和底部电压
+        yticks([vg_config.bottom_voltage, vg_config.top_voltage]);
+        yticklabels({[num2str(vg_config.bottom_voltage), 'V'], [num2str(vg_config.top_voltage), 'V']});
+        
+        % 添加网格和标签
+        grid on;
+        xlabel('Rel. Time (s)', 'FontSize', 10);
+        ylabel('Vg (V)', 'FontSize', 10);
+        title('Drive Voltage Vg', 'FontSize', 12, 'FontWeight', 'bold');
+        
+        % 设置坐标轴样式
+        ax_vg.FontSize = 9;
+        ax_vg.Box = 'on';
+        
+        hold off;
+    end
 
     % 捕获当前帧
     frameData = getframe(fig);
