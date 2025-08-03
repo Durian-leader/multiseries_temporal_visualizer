@@ -22,7 +22,7 @@ function create_3d_surf_video(data3D, varargin)
 %   'TimeUnit'      - 时间单位字符串，默认为空
 %   'FigureSize'    - 图窗大小 [宽, 高]，默认为 [1280, 720]
 %   'ShowVg'        - 是否显示Vg电压波形，默认为 true
-%   'VgConfig'      - Vg电压参数结构体，包含window_length, top_voltage, bottom_voltage, top_time, bottom_time
+%   'VgConfig'      - Vg电压参数结构体，包含window_length, top_voltage, bottom_voltage, top_time, bottom_time, stop_time
 
 % 解析输入参数
 p = inputParser;
@@ -45,6 +45,7 @@ defaultVgConfig.bottom_voltage = -5;
 defaultVgConfig.top_time = 0.1515151515;
 defaultVgConfig.bottom_time = 0.1515151515;
 defaultVgConfig.period = defaultVgConfig.top_time + defaultVgConfig.bottom_time;
+defaultVgConfig.stop_time = 8.9454;
 
 addRequired(p, 'data3D');
 addParameter(p, 'FileName', defaultFileName, @ischar);
@@ -142,9 +143,10 @@ end
 % 生成Vg电压波形函数（如果需要显示Vg）
 if args.ShowVg
     vg_config = args.VgConfig;
-    generate_vg_waveform = @(t) vg_config.bottom_voltage + ...
+    generate_vg_waveform = @(t) (t <= vg_config.stop_time) .* ...
+        (vg_config.bottom_voltage + ...
         (vg_config.top_voltage - vg_config.bottom_voltage) * ...
-        (mod(t, vg_config.period) < vg_config.top_time);
+        (mod(t, vg_config.period) < vg_config.top_time));
 end
 
 % 创建动画

@@ -92,11 +92,13 @@ vg_config.bottom_voltage = -5;   % 底部电压(V)
 vg_config.top_time = 0.1515151515;          % 顶部持续时间(秒)
 vg_config.bottom_time = 0.1515151515;       % 底部持续时间(秒)
 vg_config.period = vg_config.top_time + vg_config.bottom_time;  % 周期
+vg_config.stop_time = 8.9454;       % 电压停止时间点(秒)，之后电压为0
 
 % 生成Vg电压波形函数
-generate_vg_waveform = @(t) vg_config.bottom_voltage + ...
+generate_vg_waveform = @(t) (t <= vg_config.stop_time) .* ...
+    (vg_config.bottom_voltage + ...
     (vg_config.top_voltage - vg_config.bottom_voltage) * ...
-    (mod(t, vg_config.period) < vg_config.top_time);
+    (mod(t, vg_config.period) < vg_config.top_time));
 
 % 创建一个图形窗口，设置较大的尺寸以匹配Python版本的布局
 fig = figure('Position', [100, 100, 1400, 1000], 'Color', 'w');
