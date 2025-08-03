@@ -24,7 +24,7 @@ source venv/bin/activate
 安装所需的Python包：
 
 ```bash
-pip install numpy pandas matplotlib scipy tqdm loguru
+pip install numpy pandas matplotlib scipy pywt loguru tqdm pathlib
 ```
 
 ## FFmpeg 安装
@@ -134,23 +134,42 @@ sudo dnf install wqy-microhei-fonts wqy-zenhei-fonts
 pip install matplotlib==3.5.3
 ```
 
+## 快速开始验证
+
+安装完成后，通过运行完整的数据处理流程来验证您的设置：
+
+### 步骤1：选择起始索引
+```bash
+python python_数据预处理与可视化/00select_start_idx.py
+```
+
+### 步骤2：处理数据（选择一个路径）
+
+**用于视频生成（5点采样）：**
+```bash
+python python_数据预处理与可视化/01sample.py
+python python_数据预处理与可视化/03video.py
+```
+
+**用于详细分析（所有点）：**
+```bash
+python python_数据预处理与可视化/01csv2npz.py
+python python_数据预处理与可视化/02picture.py
+```
+
+### 步骤3（可选）：转换为MATLAB格式
+```bash
+python python_数据预处理与可视化/npz_to_mat.py
+```
+
 ## 高级配置
 
-对于想要指定自定义FFmpeg编码参数的高级用户，可以在运行可视化时使用命令行参数：
+对于需要小波去噪的用户：
+```bash
+python python_数据预处理与可视化/04查看某个信号小波去噪前后的对比.py
+```
 
-```python
-viz_gen = VisualizationGenerator(
-    processed_data=processed_data,
-    fps=30,               # 控制帧率
-    dpi=150,              # 控制分辨率
-    colormap="viridis",   # 设置颜色方案
-    output_folder="./output/videos"
-)
-
-# 生成高质量视频
-viz_gen.generate_heatmap_video(
-    output_file="heatmap.mp4",
-    title="信号强度",
-    bitrate="8000k"       # 控制视频质量
-)
+对于基线校正：
+```bash
+python python_数据预处理与可视化/baseline_correction.py
 ``` 

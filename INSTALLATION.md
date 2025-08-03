@@ -26,7 +26,7 @@ source venv/bin/activate
 Install the required Python packages:
 
 ```bash
-pip install numpy pandas matplotlib scipy tqdm loguru
+pip install numpy pandas matplotlib scipy pywt loguru tqdm pathlib
 ```
 
 ## FFmpeg Installation
@@ -136,23 +136,42 @@ If you see matplotlib-related errors, try installing a specific version:
 pip install matplotlib==3.5.3
 ```
 
+## Quick Start Verification
+
+After installation, verify your setup by running the complete data processing pipeline:
+
+### Step 1: Select Start Indices
+```bash
+python python_数据预处理与可视化/00select_start_idx.py
+```
+
+### Step 2: Process Data (Choose one path)
+
+**For video generation (5-point sampling):**
+```bash
+python python_数据预处理与可视化/01sample.py
+python python_数据预处理与可视化/03video.py
+```
+
+**For detailed analysis (all points):**
+```bash
+python python_数据预处理与可视化/01csv2npz.py
+python python_数据预处理与可视化/02picture.py
+```
+
+### Step 3 (Optional): Convert to MATLAB format
+```bash
+python python_数据预处理与可视化/npz_to_mat.py
+```
+
 ## Advanced Configuration
 
-For advanced users who want to specify custom FFmpeg encoding parameters, you can use command line arguments when running visualizations:
+For users who need wavelet denoising:
+```bash
+python python_数据预处理与可视化/04查看某个信号小波去噪前后的对比.py
+```
 
-```python
-viz_gen = VisualizationGenerator(
-    processed_data=processed_data,
-    fps=30,               # Control frame rate
-    dpi=150,              # Control resolution
-    colormap="viridis",   # Set color scheme
-    output_folder="./output/videos"
-)
-
-# Generate high-quality video
-viz_gen.generate_heatmap_video(
-    output_file="heatmap.mp4",
-    title="Signal Intensity",
-    bitrate="8000k"       # Control video quality
-)
+For baseline correction:
+```bash
+python python_数据预处理与可视化/baseline_correction.py
 ```

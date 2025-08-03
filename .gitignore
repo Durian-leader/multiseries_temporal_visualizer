@@ -68,3 +68,20 @@ MANIFEST
 /input/data*/
 *.csv
 *.txt
+*.tar
+*.opju
+*.jpg
+*.jpeg
+*.png
+
+# 数据集目录
+/datasets/
+datasets/
+
+# MATLAB数据文件
+*.mat
+
+# 临时和缓存文件
+*.tmp
+*.temp
+*~

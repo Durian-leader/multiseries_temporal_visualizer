@@ -4,112 +4,146 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Python-based multiseries temporal visualizer toolkit for processing, analyzing, and visualizing multi-series temporal data (particularly vibration data). The codebase transforms raw TXT data files into synchronized datasets and generates high-quality visualizations including heatmaps, 3D surface plots, and animations.
+This is a multiseries temporal data visualization toolkit focused on processing and visualizing time-series data from scientific experiments, particularly for swelling/expansion measurements in materials science. The project provides both Python and MATLAB implementations for data preprocessing and visualization.
 
-## Core Architecture
+## Common Development Commands
 
-### Workflow Overview
-The system provides three main processing pathways as shown in the architectural diagram:
-
-**Path 1: Wavelet Denoising Workflow**
-- Input TXT files → `04查看某个信号小波去噪前后的对比.py` → Denoised comparison visualization
-
-**Path 2: Standard Processing Pipeline** 
-- Input TXT files → `00select_start_idx.py` → CSV files → `01sample.py` → `my_processed_data_500points.npz` → `03video.py` → Video animations
-
-**Path 3: Full Resolution Pipeline**
-- Input TXT files → `00select_start_idx.py` → CSV files → `my_processed_data_use_all_points.npz` → `02picture.py` → Static visualizations + CSV data export
-
-### Data Processing Pipeline
-The toolkit follows a sequential data processing pipeline:
-
-1. **Raw Data Loading** (`utils/dataprocess/vibration_data_loader.py`): Converts TXT files to CSV format
-2. **Wavelet Denoising** (`utils/dataprocess/wavelet_denoise.py`): Applies wavelet transforms for noise reduction  
-3. **Interactive Start Selection** (`utils/dataprocess/start_idx_visualized_select.py`): GUI-based tool for selecting data start points
-4. **Data Debiasing** (`utils/dataprocess/debiasing.py`): Normalizes data by setting first values to zero
-5. **Grid Organization** (`utils/visualize/data_processor.py`): Organizes CSV files into synchronized grid structures
-6. **Visualization Generation** (`utils/visualize/visualization_generator.py`): Creates animations and static plots
-
-### Key Components
-
-- **VibrationDataLoader**: Handles TXT to CSV conversion with metadata extraction
-- **WaveletDenoiser**: Provides configurable wavelet-based noise reduction
-- **StartIdxVisualizedSelect**: Interactive matplotlib-based GUI for data trimming
-- **DataProcessor**: Synchronizes multiple time series into grid format with configurable sampling
-- **VisualizationGenerator**: Creates heatmaps, 3D surfaces, and video animations
-
-## Development Workflow
-
-### Main Entry Points
-- `main.ipynb`: Complete workflow demonstration notebook - run this for full pipeline
-- `00select_start_idx.py`: Preprocessing script (TXT→CSV, wavelet denoising, start index selection, debiasing)
-- `01sample.py`: Generates sampled processed data (`my_processed_data_500points.npz`) for video creation
-- `02picture.py`: Generates full-resolution processed data (`my_processed_data_use_all_points.npz`) for static visualizations and CSV export
-- `03video.py`: Creates video animations from sampled data
-- `04查看某个信号小波去噪前后的对比.py`: Wavelet denoising comparison visualization tool
-
-### Directory Structure
-```
-input/data/           # Raw TXT files organized by experiment
-output/               # All generated outputs
-├── data_csv/         # Converted CSV files  
-├── data_csv_denoised/    # Wavelet-denoised data
-├── data_csv_start-idx-reselected/  # Trimmed data
-├── data_csv_*_debiased/  # Normalized data
-└── *.npz            # Processed grid data for visualization
-utils/
-├── dataprocess/     # Data loading, denoising, preprocessing  
-└── visualize/       # Grid processing and visualization
-```
-
-### Common Commands
-
-Since this is a Python toolkit without package management files, install dependencies manually:
+### Python Environment Setup
 ```bash
-pip install numpy pandas matplotlib scipy tqdm loguru pywavelets
+# Install dependencies (check requirements in individual scripts)
+pip install numpy pandas matplotlib scipy pywt loguru tqdm pathlib
 ```
 
-For video generation (requires FFmpeg):
+### Data Processing Workflow
+
+#### Main Processing Pipeline
 ```bash
-# Windows: Download from https://ffmpeg.org/ and add to PATH
-# macOS: brew install ffmpeg  
-# Linux: sudo apt install ffmpeg
+# Step 1: Select start indices for data alignment (input: 原始数据文件)
+python python_数据预处理与可视化/00select_start_idx.py
+# Output: 一系列csv文件 (中间数据)
+
+# Step 2a: Generate grid data for video processing (5-point sampling)
+python python_数据预处理与可视化/01sample.py
+# Output: outputmy_processed_data_5_00points.npz (数据后台的数据)
+
+# Step 2b: Generate full grid data (all points)
+python python_数据预处理与可视化/01csv2npz.py  
+# Output: outputmy_processed_data_use_all_points.npz (包含所有信息的处理后数据)
+
+# Step 3a: Create visualizable videos from 5-point data
+python python_数据预处理与可视化/03video.py
+# Output: 可视化的视频
+
+# Step 3b: Generate static visualizations from all-point data
+python python_数据预处理与可视化/02picture.py
+# Output: 某个时刻的可视化 + 该时刻的数据导出(csv)
+
+# Step 4: Convert NPZ to MAT format for MATLAB processing
+python npz_to_mat.py
+# Output: matlab可用 → 可视化的视频
 ```
 
-Run the complete pipeline:
+#### Optional Processing Steps
 ```bash
-jupyter notebook main.ipynb
-# Or for automated processing:
-python 00select_start_idx.py
+# Baseline correction (interactive GUI) - can be applied before main pipeline
+python baseline_correction.py
+# Output: 去偏置后可优化
+
+# Wavelet denoising comparison
+python python_数据预处理与可视化/04查看某个信号小波去噪前后的对比.py
+# Output: 去噪后可视化
 ```
 
-## Data Flow Architecture
+### MATLAB Workflow
+```matlab
+% Run main visualization scripts in matlab_数据可视化_比python精美/
+main01_3d.m      % 3D surface plots
+main02_heatmap.m  % Heat map visualizations  
+main03_heatmapwithprofile.m  % Heat maps with cross-sectional profiles
+```
 
-The system processes multi-experiment vibration data organized in a grid pattern:
-- Input files named as `{row}{col}.txt` (e.g., `11.txt`, `12.txt`, etc.)
-- Grid dimensions configurable (typically 6x6 for 36 measurement points)
-- Temporal synchronization across all measurement points
-- Output supports both sampled (500 points) and full-resolution data
+## Code Architecture
 
-## Visualization Capabilities
+### Core Data Processing Pipeline
 
-- **Heatmap Videos**: 2D intensity maps over time
-- **3D Surface Animations**: Rotating or fixed-angle surface plots  
-- **Profile Cross-sections**: Combined heatmap with line profiles
-- **Static Snapshots**: High-resolution images at specific time points
-- **Configurable Colormaps**: Supports 20+ scientific colormaps including viridis, plasma, jet
+1. **Raw Data Loading** (`vibration_data_loader.py:26-131`)
+   - Loads time-series data from text files with metadata parsing
+   - Handles file format validation and error recovery
+   - Converts to CSV format for downstream processing
 
-## Key Configuration Options
+2. **Data Preprocessing** (`python_数据预处理与可视化/utils/dataprocess/`)
+   - **Start Index Selection**: Interactive tool for temporal alignment
+   - **Baseline Correction**: GUI-based baseline drift correction
+   - **Wavelet Denoising**: Configurable wavelet packet denoising
 
-- Wavelet denoising: `wavelet='db6'`, `level=6`, configurable frequency retention
-- Grid sampling: `sampling_points=500` or `use_all_points=True`
-- Video quality: Configurable FPS, DPI, bitrate via VisualizationGenerator
-- Color ranges: Global or per-visualization vmin/vmax settings
-- Output formats: MP4 (preferred), GIF, HTML fallbacks
+3. **Grid Data Processing** (`data_processor.py:21-371`)
+   - Converts individual time series into spatial grid format
+   - Handles temporal synchronization and interpolation
+   - Manages memory-efficient data structures for large datasets
 
-## Logging
+4. **Visualization Generation** (`visualization_generator.py:71-1496`)
+   - Creates high-quality video animations (heat maps, 3D surfaces)
+   - Supports multiple color schemes and export formats
+   - Handles FFmpeg integration for video encoding
 
-The system uses loguru for comprehensive logging:
-- Console output at INFO level
-- File logging to `logs/log.log`
-- Component-specific logs (e.g., `visualization_generator.log`)
+### Key Data Structures
+
+- **Grid Data Format**: 3D numpy arrays `[time, rows, cols]` for spatial-temporal data
+- **Processed Data Dictionary**: Contains grid_data, time_points, signal ranges, and metadata
+- **File Path Grid**: 2D array mapping spatial positions to data file paths
+
+### Visualization Capabilities
+
+1. **Heat Map Animations**: Time-evolving 2D color maps
+2. **3D Surface Videos**: Rotating 3D surface plots over time
+3. **Profile Analysis**: Cross-sectional views with heat maps
+4. **Static Snapshots**: Individual time-point visualizations
+
+## Important Implementation Details
+
+### Memory Management
+- Large datasets are processed in chunks to avoid memory overflow
+- Use `use_all_points=False` in DataProcessor for memory-constrained environments
+- Grid data is stored as numpy arrays for efficient operations
+
+### File Organization
+- Input CSV files should follow natural sorting order (e.g., file1.csv, file2.csv, ..., file10.csv)
+- Grid positions are assigned row-major: `row = idx // cols, col = idx % cols`
+- Output videos/images are saved to `./output/videos/` by default
+
+### Visualization Configuration
+- Color maps are configurable via `CLASSIC_COLORMAPS` dictionary
+- Video quality controlled by bitrate and DPI settings
+- FFmpeg is preferred for high-quality video output, falls back to GIF/HTML
+
+### Cross-Platform Considerations
+- Chinese font handling is platform-specific (Windows: SimHei, macOS: PingFang SC, Linux: WenQuanYi)
+- File paths use pathlib for cross-platform compatibility
+- GUI components require tkinter for baseline correction tool
+
+## Data Flow
+
+### Primary Data Processing Pipeline
+1. **原始数据文件 (Raw Data)** → `00select_start_idx.py` → **一系列csv文件 (CSV Series)**
+2. **CSV Series** → `01sample.py` → **outputmy_processed_data_5_00points.npz (5-point Grid)**
+3. **CSV Series** → `01csv2npz.py` → **outputmy_processed_data_use_all_points.npz (Full Grid)**
+4. **5-point Grid** → `03video.py` → **可视化的视频 (Visualization Videos)**
+5. **Full Grid** → `02picture.py` → **某个时刻的可视化 + CSV Export**
+6. **NPZ Files** → `npz_to_mat.py` → **matlab可用 (MATLAB Format)** → **可视化的视频**
+
+### Optional Processing Branches
+- **Any Stage** → `baseline_correction.py` → **去偏置后可优化 (Debiased Data)**
+- **CSV Files** → `04查看某个信号小波去噪前后的对比.py` → **去噪后可视化 (Denoised Visualization)**
+
+## Troubleshooting
+
+### Common Issues
+- **FFmpeg not found**: Install FFmpeg or use alternative output formats (GIF/HTML)
+- **Memory errors**: Reduce sampling_points or use chunked processing
+- **File sorting issues**: Ensure consistent naming convention for input files
+- **Font rendering**: Install appropriate Chinese fonts for cross-platform compatibility
+
+### Performance Optimization  
+- Use `use_all_points=False` for faster processing with fewer time points
+- Adjust `dpi` and `bitrate` settings based on quality requirements
+- Process smaller grid sizes (rows × cols) for faster iteration during development
