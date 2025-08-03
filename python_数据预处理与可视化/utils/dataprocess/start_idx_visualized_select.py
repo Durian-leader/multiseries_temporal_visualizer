@@ -23,7 +23,9 @@ class StartIdxVisualizedSelect:
         self.input_folder = input_folder
         self.output_folder = output_folder
         self.current_file = None
-        self.data = None
+        self.current_vg_file = None  # The Vg file used for visualization
+        self.data = None  # Data from original file (for trimming)
+        self.vg_data = None  # Data from Vg file (for visualization)
         self.fig = None
         self.ax = None
         self.selected_point = None
@@ -37,9 +39,40 @@ class StartIdxVisualizedSelect:
         # Find all TXT and CSV files in the input folder
         txt_files = glob.glob(os.path.join(self.input_folder, "*.txt"))
         csv_files = glob.glob(os.path.join(self.input_folder, "*.csv"))
-        self.files_to_process = txt_files + csv_files
+        all_files = txt_files + csv_files
         
-        logger.info(f"找到 {len(txt_files)} 个TXT文件和 {len(csv_files)} 个CSV文件")
+        # Filter to only include files that have corresponding Vg files
+        # Look for pairs: original file (e.g., "11.txt") and Vg file (e.g., "11V.txt")
+        self.files_to_process = []
+        vg_files = set()
+        
+        # First, identify all Vg files
+        for file_path in all_files:
+            filename = os.path.basename(file_path)
+            if filename.endswith('V.txt') or filename.endswith('V.csv'):
+                vg_files.add(file_path)
+        
+        # Then, find original files that have corresponding Vg files
+        for file_path in all_files:
+            filename = os.path.basename(file_path)
+            file_ext = os.path.splitext(filename)[1]
+            
+            # Skip if this is already a Vg file
+            if filename.endswith('V.txt') or filename.endswith('V.csv'):
+                continue
+                
+            # Look for corresponding Vg file
+            base_name = os.path.splitext(filename)[0]
+            vg_filename = base_name + 'V' + file_ext
+            vg_file_path = os.path.join(self.input_folder, vg_filename)
+            
+            if vg_file_path in vg_files:
+                self.files_to_process.append(file_path)
+                logger.info(f"找到配对文件: {filename} <-> {vg_filename}")
+            else:
+                logger.warning(f"未找到对应的Vg文件: {filename}")
+        
+        logger.info(f"找到 {len(self.files_to_process)} 个有Vg配对的数据文件")
         
         # Create the output folder if it doesn't exist
         os.makedirs(self.output_folder, exist_ok=True)
@@ -165,7 +198,8 @@ class StartIdxVisualizedSelect:
     
     def on_click(self, event):
         """Handle mouse click event to select a new starting point"""
-        if event.inaxes != self.ax:
+        # Allow clicks on either subplot
+        if event.inaxes not in [self.ax, getattr(self, 'ax2', None)]:
             return
         
         logger.debug(f"选择了点 x={event.xdata}")
@@ -173,10 +207,15 @@ class StartIdxVisualizedSelect:
         # Store the exact x-coordinate of the click
         self.selected_point = event.xdata
         
-        # Update the vertical line
+        # Update the vertical lines on both subplots
         if self.vertical_line:
             self.vertical_line.remove()
-        self.vertical_line = self.ax.axvline(x=self.selected_point, color='r', linestyle='--')
+        if hasattr(self, 'vertical_line2') and self.vertical_line2:
+            self.vertical_line2.remove()
+            
+        self.vertical_line = self.ax.axvline(x=self.selected_point, color='r', linestyle='--', linewidth=2, alpha=0.8)
+        if hasattr(self, 'ax2'):
+            self.vertical_line2 = self.ax2.axvline(x=self.selected_point, color='r', linestyle='--', linewidth=2, alpha=0.8)
         
         # Redraw the canvas
         self.fig.canvas.draw_idle()
@@ -188,6 +227,7 @@ class StartIdxVisualizedSelect:
             return False
         
         # Find the closest data point to the selected x position
+        # Note: We use the original data (self.data) for trimming, not the Vg data
         if isinstance(self.data, pd.DataFrame):
             # If using DataFrame with time as first column
             time_col = self.data.columns[0]
@@ -195,7 +235,7 @@ class StartIdxVisualizedSelect:
             
             # Find the index of the closest time value
             closest_idx = np.abs(time_array - self.selected_point).argmin()
-            logger.debug(f"选择的时间: {self.selected_point}, 最近的索引: {closest_idx}")
+            logger.debug(f"选择的时间: {self.selected_point}, 最近的索引: {closest_idx} (在原始数据文件中)")
             
             # Trim the data from this index
             trimmed_data = self.data.iloc[closest_idx:]
@@ -206,13 +246,14 @@ class StartIdxVisualizedSelect:
             trimmed_data = self.data[idx:, :]
         
         # Create output filename (always save as CSV)
+        # Use the original file name, not the Vg file name
         base_name = os.path.basename(self.current_file)
         file_name_without_ext = os.path.splitext(base_name)[0]
         output_file = os.path.join(self.output_folder, file_name_without_ext + ".csv")
         
         # Save as CSV with headers
         trimmed_data.to_csv(output_file, index=False)
-        logger.success(f"已保存截断数据到 {output_file}")
+        logger.success(f"已保存截断数据到 {output_file} (基于Vg文件选择的起始点)")
         return True
     
     def on_next(self, event=None):
@@ -231,11 +272,12 @@ class StartIdxVisualizedSelect:
     def create_buttons(self):
         """Create and set up the buttons with correct positioning"""
         # Create button axes with more space and clearer positioning
-        plt.subplots_adjust(bottom=0.2)  # Make room for buttons
+        # Adjust for dual subplot layout
+        plt.subplots_adjust(bottom=0.15)  # Make room for buttons
         
         # Create button axes
-        ax_next = plt.axes([0.7, 0.05, 0.2, 0.075])
-        ax_skip = plt.axes([0.3, 0.05, 0.2, 0.075])
+        ax_next = plt.axes([0.7, 0.02, 0.2, 0.06])
+        ax_skip = plt.axes([0.3, 0.02, 0.2, 0.06])
         
         # Create buttons with visible styling
         self.btn_next = Button(ax_next, 'Save & Next', color='lightblue', hovercolor='skyblue')
@@ -269,12 +311,27 @@ class StartIdxVisualizedSelect:
         self.current_file_index += 1
         self.selected_point = None
         
-        logger.info(f"正在处理文件: {self.current_file}")
+        # Generate corresponding Vg file path
+        filename = os.path.basename(self.current_file)
+        base_name = os.path.splitext(filename)[0]
+        file_ext = os.path.splitext(filename)[1]
+        vg_filename = base_name + 'V' + file_ext
+        self.current_vg_file = os.path.join(self.input_folder, vg_filename)
         
-        # Read the data
+        logger.info(f"正在处理文件: {self.current_file}")
+        logger.info(f"对应的Vg文件: {self.current_vg_file}")
+        
+        # Read both the original data and the Vg data
         self.data = self.read_data_file(self.current_file)
+        self.vg_data = self.read_data_file(self.current_vg_file)
+        
         if self.data is None or len(self.data) == 0:
             logger.warning(f"文件 {self.current_file} 中没有有效数据，跳过...")
+            self.process_next_file()
+            return
+            
+        if self.vg_data is None or len(self.vg_data) == 0:
+            logger.warning(f"Vg文件 {self.current_vg_file} 中没有有效数据，跳过...")
             self.process_next_file()
             return
         
@@ -282,33 +339,106 @@ class StartIdxVisualizedSelect:
         if self.fig is not None:
             plt.close(self.fig)
         
-        # Create a new figure
-        self.fig, self.ax = plt.subplots(figsize=(12, 7))
+        # Create a new figure with two subplots
+        self.fig, (self.ax, self.ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
         
         # Create buttons
         self.create_buttons()
         
-        # Connect the mouse click event
+        # Connect the mouse click event to both axes
         self.fig.canvas.mpl_connect('button_press_event', self.on_click)
         
-        # Reset vertical line
+        # Reset vertical lines
         self.vertical_line = None
+        self.vertical_line2 = None
         
-        # Plot the data using our basic plotting method
-        self._basic_plot()
-        self.ax.set_title(f"File: {os.path.basename(self.current_file)} ({self.current_file_index}/{len(self.files_to_process)})")
+        # Plot both Vg data and original data
+        self._plot_both_signals()
+        
+        # Set titles
+        self.ax.set_title(f"Vg Signal: {os.path.basename(self.current_vg_file)} (用于选择起始点)")
+        self.ax2.set_title(f"Original Signal: {os.path.basename(self.current_file)} ({self.current_file_index}/{len(self.files_to_process)})")
 
         self.ax.grid(True)
+        self.ax2.grid(True)
         
         # Show instructions
-        plt.figtext(0.5, 0.01, "Click on graph to select starting point. Press 'n' to save & next, 'k' to skip.", 
+        plt.figtext(0.5, 0.08, "Click on either graph to select starting point. Red line shows selected position on both signals.", 
                    ha='center', fontsize=9)
+        plt.figtext(0.5, 0.05, "Press 'n' to save & next, 'k' to skip file", 
+                   ha='center', fontsize=8)
         
         # Show the plot
         self.fig.canvas.draw()
         plt.show(block=False)  # Non-blocking show
         plt.pause(0.1)  # Small pause to ensure the window shows
     
+    def _plot_both_signals(self):
+        """Plot both Vg data and original data on separate subplots"""
+        # Plot Vg data on the first subplot (self.ax)
+        if isinstance(self.vg_data, pd.DataFrame):
+            time_col = self.vg_data.columns[0]
+            x_values = self.vg_data[time_col]
+            
+            for col in self.vg_data.columns[1:]:
+                try:
+                    self.ax.plot(x_values, self.vg_data[col], label=f"Vg - {str(col)}", color='blue', linewidth=1.5)
+                except Exception as e:
+                    logger.error(f"绘制Vg列 {col} 时出错: {e}")
+        else:
+            x_values = self.vg_data[:, 0]
+            for col in range(1, self.vg_data.shape[1]):
+                self.ax.plot(x_values, self.vg_data[:, col], label=f"Vg - Column {col+1}", color='blue', linewidth=1.5)
+        
+        self.ax.set_ylabel("Voltage (Vg)")
+        self.ax.legend()
+        
+        # Plot original data on the second subplot (self.ax2)
+        if isinstance(self.data, pd.DataFrame):
+            time_col = self.data.columns[0]
+            x_values = self.data[time_col]
+            
+            for col in self.data.columns[1:]:
+                try:
+                    self.ax2.plot(x_values, self.data[col], label=str(col), color='green', linewidth=1.5)
+                except Exception as e:
+                    logger.error(f"绘制原始数据列 {col} 时出错: {e}")
+        else:
+            x_values = self.data[:, 0]
+            for col in range(1, self.data.shape[1]):
+                self.ax2.plot(x_values, self.data[:, col], label=f"Column {col+1}", color='green', linewidth=1.5)
+        
+        self.ax2.set_xlabel("Time")
+        self.ax2.set_ylabel("Signal")
+        self.ax2.legend()
+
+    def _basic_plot_vg(self):
+        """Plot the Vg data for visualization and start point selection"""
+        # If vg_data is a DataFrame with named columns
+        if isinstance(self.vg_data, pd.DataFrame):
+            # Use first column as time (x-axis)
+            time_col = self.vg_data.columns[0]
+            x_values = self.vg_data[time_col]
+            
+            # Plot each remaining column against time
+            for col in self.vg_data.columns[1:]:
+                try:
+                    self.ax.plot(x_values, self.vg_data[col], label=f"Vg - {str(col)}")
+                except Exception as e:
+                    logger.error(f"绘制Vg列 {col} 时出错: {e}")
+        else:
+            # Assume numpy array - first column is time
+            x_values = self.vg_data[:, 0]
+            
+            # Plot each remaining column against time
+            for col in range(1, self.vg_data.shape[1]):
+                self.ax.plot(x_values, self.vg_data[:, col], label=f"Vg - Column {col+1}")
+        
+        # Set labels
+        self.ax.set_xlabel("Time")
+        self.ax.set_ylabel("Voltage (Vg)")
+        self.ax.legend()
+
     def _basic_plot(self):
         """Basic plotting function for when VibrationDataLoader is not available"""
         # If data is a DataFrame with named columns
