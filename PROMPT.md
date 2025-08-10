@@ -1,10 +1,19 @@
-接下来要修改‘matlab_数据可视化_比python精美’中的文件
-
-首先修改matlab_数据可视化_比python精美/main03_heatmapwithprofile.m
-这个现在绘制的是热力图，带有剖面图的。但是目前还没有画出实时的驱动电压Vg的波形
-
-这个我们画在右上角，因为现在热力图的上面和右边是剖面图，正好右上角是空着的。
-
-Vg是实时绘制的，视觉中心一直在这个小图的中心。然后波形是理论生成的（周期脉冲）。
-
-给定 显示的时间窗口长度、顶部电压、底部电压、顶部时间、底部时间。就生成一个对应的波形。然后随着热力图一帧一帧的以时间窗口滑动着显示在左上角。线段的最右端点一个圆点来标注，并且这个原点始终在x轴中间的位置（时间窗口中间的位置，只是上下的跳动），原点的左边有过去的曲线，右边是空白的。纵轴标注出对应的顶部电压和底部电压。
+1. 读取项目所有文件
+2. 读取：
+    README.md
+    README_CN.md
+    INSTALLATION.md
+    INSTALLATION_CN.md
+    CLAUDE.md
+3. 删除：
+    README.md
+    README_CN.md
+    INSTALLATION.md
+    INSTALLATION_CN.md
+    CLAUDE.md
+4. 重新创建并撰写：
+    README.md
+    README_CN.md
+    INSTALLATION.md
+    INSTALLATION_CN.md
+    CLAUDE.md

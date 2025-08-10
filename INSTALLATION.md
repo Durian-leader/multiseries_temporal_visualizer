@@ -2,56 +2,96 @@
 
 - [简体中文](INSTALLATION_CN.md)
 
-This guide provides instructions for installing all dependencies required to run the Multiseries Temporal Visualizer.
+This guide provides step-by-step instructions for installing all dependencies required to run the Multiseries Temporal Visualizer toolkit.
 
-## Python Requirements
+## System Requirements
 
-The project requires Python 3.7 or newer. We recommend using a virtual environment for installation.
+- **Python**: 3.7 or newer
+- **Operating System**: Windows, macOS, or Linux
+- **Memory**: 4GB+ RAM recommended for large datasets
+- **Storage**: 1GB+ free space for processing outputs
 
-### Creating a Virtual Environment (Optional but Recommended)
+## Quick Installation
+
+### Option 1: Using pip (Recommended)
 
 ```bash
-# Create a virtual environment
+# Clone or download the repository
+cd multiseries_temporal_visualizer
+
+# Install core dependencies
+pip install -r requirements.txt
+
+# Verify installation
+python -c "import numpy, pandas, matplotlib, scipy, pywt, loguru, tqdm; print('✓ All packages installed successfully')"
+```
+
+### Option 2: Manual Installation
+
+```bash
+# Core scientific computing libraries
+pip install numpy pandas scipy
+
+# Visualization libraries
+pip install matplotlib
+
+# Wavelet analysis
+pip install PyWavelets
+
+# Logging and progress bars
+pip install loguru tqdm
+
+# Optional: Enhanced plotting (if needed)
+pip install plotly>=5.0.0
+```
+
+## Virtual Environment Setup (Recommended)
+
+Using a virtual environment helps avoid package conflicts:
+
+```bash
+# Create virtual environment
 python -m venv venv
 
-# Activate the virtual environment
+# Activate virtual environment
 # On Windows:
 venv\Scripts\activate
 # On macOS/Linux:
 source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Deactivate when done (optional)
+deactivate
 ```
 
-### Basic Dependencies
+## FFmpeg Installation (Essential for Video Generation)
 
-Install the required Python packages:
-
-```bash
-pip install numpy pandas matplotlib scipy pywt loguru tqdm pathlib
-```
-
-## FFmpeg Installation
-
-FFmpeg is required to generate high-quality MP4 animations. If FFmpeg is not installed, the system will fall back to alternative formats (GIF or HTML).
+FFmpeg is **highly recommended** for generating high-quality MP4 videos. Without it, the system will fall back to lower-quality GIF or HTML formats.
 
 ### Windows
 
-1. Download FFmpeg from [FFmpeg's official website](https://ffmpeg.org/download.html) or [gyan.dev](https://www.gyan.dev/ffmpeg/builds/)
-2. Download the "ffmpeg-release-full" version and extract it to your desired location (e.g., `C:\FFmpeg`)
-3. Add FFmpeg's bin directory to your system PATH:
-   - Right-click "This PC" → "Properties" → "Advanced system settings" → "Environment Variables"
-   - Find "Path" under "System variables", click "Edit"
-   - Add the path to FFmpeg's bin directory, e.g., `C:\FFmpeg\bin`
-   - Click "OK" to save changes
-4. Restart your command prompt or PowerShell for the PATH changes to take effect
-5. Verify the installation by running:
-   ```
-   ffmpeg -version
-   ```
+**Method 1: Using winget (Windows 10/11)**
+```bash
+winget install ffmpeg
+```
+
+**Method 2: Manual Installation**
+1. Download FFmpeg from [FFmpeg's official website](https://ffmpeg.org/download.html#build-windows) or [gyan.dev](https://www.gyan.dev/ffmpeg/builds/)
+2. Download the "release" build (not static) and extract to `C:\ffmpeg`
+3. Add FFmpeg to your PATH:
+   - Press `Win + X` and select "System"
+   - Click "Advanced system settings" → "Environment Variables"
+   - Find "Path" in "System variables", click "Edit"
+   - Click "New" and add: `C:\ffmpeg\bin`
+   - Click "OK" to save all changes
+4. **Restart your command prompt/PowerShell**
+5. Verify installation: `ffmpeg -version`
 
 ### macOS
 
-Use Homebrew to install FFmpeg:
-
+**Method 1: Using Homebrew (Recommended)**
 ```bash
 # Install Homebrew if not already installed
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -60,118 +100,337 @@ Use Homebrew to install FFmpeg:
 brew install ffmpeg
 ```
 
-### Ubuntu/Debian Linux
+**Method 2: Using MacPorts**
+```bash
+sudo port install ffmpeg
+```
 
+### Linux
+
+**Ubuntu/Debian:**
 ```bash
 sudo apt update
 sudo apt install ffmpeg
 ```
 
-### Fedora Linux
-
+**Fedora:**
 ```bash
 sudo dnf install ffmpeg
 ```
 
-### CentOS/RHEL Linux
-
+**CentOS/RHEL:**
 ```bash
+# Enable EPEL repository first
 sudo yum install epel-release
 sudo yum install ffmpeg
 ```
 
-## Verifying the Installation
-
-You can verify that matplotlib is correctly configured to use FFmpeg by running the following Python code:
-
-```python
-import matplotlib.animation as animation
-print("Available animation writers:", animation.writers.list())
+**Arch Linux:**
+```bash
+sudo pacman -S ffmpeg
 ```
 
-If 'ffmpeg' appears in the output, the configuration is correct.
+## Jupyter Notebook Setup
 
-## Font Support for Non-English Characters (Optional)
+For the integrated pipeline experience:
 
-If you need to display non-Latin characters (like Chinese) in your visualizations:
+```bash
+# Install Jupyter
+pip install jupyter notebook
+
+# Optional: Install JupyterLab for enhanced interface
+pip install jupyterlab
+
+# Start Jupyter Notebook
+jupyter notebook
+
+# OR start JupyterLab
+jupyter lab
+```
+
+## GUI Dependencies
+
+The toolkit includes interactive GUI tools for baseline correction and start point selection.
+
+### tkinter (Usually Pre-installed)
+
+Most Python installations include tkinter by default. If not:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install python3-tk
+```
+
+**Fedora:**
+```bash
+sudo dnf install tkinter
+```
+
+**macOS/Windows:** Usually pre-installed with Python
+
+## Font Support for Non-English Characters
+
+For proper Chinese character rendering in visualizations:
 
 ### Windows
-Default support for:
-- SimHei
-- Microsoft YaHei
-- SimSun
+Default fonts supported:
+- SimHei (黑体)
+- Microsoft YaHei (微软雅黑)  
+- SimSun (宋体)
+
+**If characters don't display correctly:**
+1. Go to Settings → Time & Language → Language
+2. Add Chinese (Simplified) or Chinese (Traditional)
+3. Install language pack when prompted
 
 ### macOS
-Default support for:
-- PingFang SC
-- Heiti SC
-- STHeiti
+Default fonts supported:
+- PingFang SC (苹方-简)
+- Heiti SC (黑体-简)
+- STHeiti (华文黑体)
 
-### Linux
-You may need to install:
-
-Ubuntu/Debian:
+**If needed:**
 ```bash
-sudo apt install fonts-wqy-microhei fonts-wqy-zenhei
+# Install additional Chinese fonts via Homebrew
+brew install --cask font-source-han-sans
 ```
 
-Fedora:
+### Linux
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install fonts-wqy-microhei fonts-wqy-zenhei
+sudo apt install fonts-noto-cjk  # Alternative comprehensive font pack
+```
+
+**Fedora:**
 ```bash
 sudo dnf install wqy-microhei-fonts wqy-zenhei-fonts
+sudo dnf install google-noto-sans-cjk-fonts  # Alternative
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S wqy-microhei wqy-zenhei
+```
+
+## MATLAB Integration (Optional)
+
+For enhanced 3D visualizations and publication-quality figures:
+
+1. **Install MATLAB** R2018b or newer
+2. **Ensure MATLAB is in your system PATH**
+3. **Verify installation:**
+   ```bash
+   matlab -batch "disp('MATLAB is working')"
+   ```
+4. **Test MAT file compatibility:**
+   ```matlab
+   % In MATLAB command window
+   data = load('my_processed_data.mat');
+   disp(fieldnames(data));
+   ```
+
+## Verification and Testing
+
+### Basic Verification
+
+```bash
+# Test core Python packages
+python -c "
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import scipy
+import pywt
+import loguru
+import tqdm
+print('✓ All core packages working')
+"
+```
+
+### FFmpeg Verification
+
+```bash
+# Check FFmpeg installation
+ffmpeg -version
+
+# Test matplotlib FFmpeg integration
+python -c "
+import matplotlib.animation as animation
+writers = animation.writers.list()
+print('Available writers:', writers)
+if 'ffmpeg' in writers:
+    print('✓ FFmpeg integration working')
+else:
+    print('⚠ FFmpeg not available - videos will use fallback formats')
+"
+```
+
+### Font Verification
+
+```python
+# Test Chinese font support
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# List available fonts
+fonts = [f.name for f in fm.fontManager.ttflist if 'SimHei' in f.name or 'PingFang' in f.name or 'WenQuanYi' in f.name]
+print("Available Chinese fonts:", fonts)
+
+# Test plot with Chinese characters
+plt.figure(figsize=(6, 4))
+plt.plot([1, 2, 3], [1, 4, 2])
+plt.title('测试中文显示')
+plt.xlabel('时间')
+plt.ylabel('信号')
+plt.savefig('font_test.png', dpi=150, bbox_inches='tight')
+print("✓ Font test saved as 'font_test.png'")
+```
+
+### GUI Testing
+
+```python
+# Test tkinter availability
+try:
+    import tkinter as tk
+    root = tk.Tk()
+    root.title("GUI Test")
+    tk.Label(root, text="✓ GUI working").pack()
+    print("✓ GUI test window should appear")
+    # Uncomment next line to show window
+    # root.mainloop()
+    root.destroy()
+except ImportError:
+    print("⚠ tkinter not available - GUI features will not work")
+```
+
+## Quick Start Test
+
+Test the complete installation by running a minimal workflow:
+
+```bash
+# Navigate to project directory
+cd multiseries_temporal_visualizer
+
+# Test data loading (assuming you have sample data)
+python -c "
+from python_dataprepare_visualize.utils.dataprocess.vibration_data_loader import VibrationDataLoader
+print('✓ Data loader working')
+"
+
+# Test Jupyter notebook (will open in browser)
+jupyter notebook main.ipynb
 ```
 
 ## Troubleshooting
 
-If you encounter errors related to video generation:
+### Common Issues and Solutions
 
-1. Confirm FFmpeg is correctly installed and added to your PATH
-2. Check if matplotlib can find FFmpeg using the verification script above
-3. Try forcing a different output format by modifying the file extension:
-   - `.gif` for GIF format (using Pillow)
-   - `.html` for HTML animation
-
-If you see matplotlib-related errors, try installing a specific version:
-
+**"No module named 'X'" Errors:**
 ```bash
-pip install matplotlib==3.5.3
+# Ensure you're in the correct environment
+pip list | grep package_name
+
+# Reinstall missing package
+pip install --upgrade package_name
 ```
 
-## Quick Start Verification
-
-After installation, verify your setup by running the complete data processing pipeline:
-
-### Step 1: Select Start Indices
+**FFmpeg Not Found:**
 ```bash
-python python_数据预处理与可视化/00select_start_idx.py
+# Windows: Restart command prompt after PATH changes
+# macOS/Linux: Check PATH
+echo $PATH | grep ffmpeg
+
+# Verify FFmpeg location
+which ffmpeg  # macOS/Linux
+where ffmpeg  # Windows
 ```
 
-### Step 2: Process Data (Choose one path)
+**Memory Errors During Processing:**
+- Reduce grid size (e.g., use 4×6 instead of 6×6)
+- Enable sampling mode in processing scripts
+- Close other applications to free memory
 
-**For video generation (5-point sampling):**
-```bash
-python python_数据预处理与可视化/01sample.py
-python python_数据预处理与可视化/03video.py
-```
+**GUI Not Displaying:**
+- Ensure X11 forwarding is enabled for SSH connections
+- On WSL, install an X server like VcXsrv
+- Check tkinter installation
 
-**For detailed analysis (all points):**
-```bash
-python python_数据预处理与可视化/01csv2npz.py
-python python_数据预处理与可视化/02picture.py
-```
+**Slow Video Generation:**
+- Reduce DPI setting (e.g., 100 instead of 150)
+- Lower frame rate (e.g., 24 fps instead of 30)
+- Use shorter video clips for testing
 
-### Step 3 (Optional): Convert to MATLAB format
-```bash
-python python_数据预处理与可视化/npz_to_mat.py
-```
+**Chinese Characters Not Displaying:**
+- Install appropriate fonts for your platform
+- Clear matplotlib font cache: `rm ~/.matplotlib/fontlist-v*.json`
+- Restart Python after font installation
+
+### Performance Optimization Tips
+
+1. **Use SSD storage** for faster I/O operations
+2. **Increase RAM** for larger datasets (8GB+ recommended)
+3. **Enable GPU acceleration** if using MATLAB visualizations
+4. **Use sampling mode** for initial testing and development
+
+### Platform-Specific Notes
+
+**Windows Subsystem for Linux (WSL):**
+- Install Windows-based FFmpeg for better integration
+- Use VcXsrv for GUI applications
+- Mount Windows drives for data access
+
+**macOS Apple Silicon (M1/M2):**
+- Use conda or mamba for better ARM64 support
+- Some packages may require Rosetta 2
+
+**Linux Server/Headless:**
+- Use `matplotlib.use('Agg')` backend
+- Install virtual framebuffer: `sudo apt install xvfb`
+- Run GUI tools with: `xvfb-run python script.py`
 
 ## Advanced Configuration
 
-For users who need wavelet denoising:
+### Environment Variables
+
+Create a `.env` file in the project root:
+
 ```bash
-python python_数据预处理与可视化/04查看某个信号小波去噪前后的对比.py
+# Optional environment variables
+MATPLOTLIB_BACKEND=TkAgg
+NUMEXPR_MAX_THREADS=4
+OMP_NUM_THREADS=4
 ```
 
-For baseline correction:
-```bash
-python python_数据预处理与可视化/baseline_correction.py
+### Custom Configuration
+
+Modify default settings in your scripts:
+
+```python
+# In your processing scripts
+import matplotlib
+matplotlib.rcParams['font.size'] = 12
+matplotlib.rcParams['figure.dpi'] = 150
+matplotlib.rcParams['savefig.dpi'] = 300
 ```
+
+## Getting Help
+
+If you encounter issues:
+
+1. **Check the troubleshooting section** in this guide
+2. **Review error messages** carefully - they often contain solutions
+3. **Test individual components** using the verification scripts above
+4. **Check system resources** (memory, disk space, CPU usage)
+
+## Next Steps
+
+Once installation is complete:
+
+1. **Read** [README.md](README.md) for usage instructions
+2. **Try** the integrated Jupyter notebook: `jupyter notebook main.ipynb`
+3. **Process sample data** using the quick start commands
+4. **Explore** advanced features and MATLAB integration
+
+Your installation is now complete and ready for scientific data visualization!
