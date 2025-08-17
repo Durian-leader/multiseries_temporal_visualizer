@@ -2,7 +2,7 @@
 
 - [简体中文](README_CN.md)
 
-A comprehensive Python and MATLAB toolkit for processing, analyzing, and visualizing multi-series temporal data from scientific experiments, particularly for vibration/expansion measurements in materials science.
+A comprehensive Python and MATLAB toolkit for processing, analyzing, and visualizing multi-series temporal data from scientific experiments, particularly focused on OECT (Organic Electrochemical Transistor) swelling measurements and similar materials science applications.
 
 ## Demo Videos
 - https://youtu.be/eMQt-ECYRZA
@@ -11,11 +11,16 @@ A comprehensive Python and MATLAB toolkit for processing, analyzing, and visuali
 
 ## Key Features
 
+### 🎯 Integrated Pipeline Interface
+- **Unified Jupyter Notebook**: Complete pipeline with `main.ipynb` for interactive processing
+- **Programmatic API**: Clean function interfaces through `steps.py` for automation
+- **Real-time Progress Tracking**: Comprehensive logging and error handling
+- **Flexible Processing**: Support for both complete pipeline and individual steps
+
 ### 🔄 Complete Data Processing Pipeline
 - **Raw Data Loading**: Convert TXT files to CSV with metadata parsing
-- **Wavelet Denoising**: Configurable wavelet packet denoising with db6 wavelets
 - **Interactive Start Point Selection**: Visual GUI for temporal alignment with Vg signal support
-- **Baseline Correction**: Automatic and manual baseline drift correction
+- **Debiasing Processing**: Automatic baseline offset correction and data truncation
 - **Grid Data Organization**: Convert individual time series into spatial grid format
 - **Format Conversion**: NPZ to MATLAB MAT format for cross-platform compatibility
 
@@ -24,13 +29,12 @@ A comprehensive Python and MATLAB toolkit for processing, analyzing, and visuali
 - **Static Visualization**: Time-point snapshots and data exports
 - **MATLAB Integration**: Professional-grade visualizations using MATLAB scripts
 - **Multiple Color Schemes**: 20+ scientific color maps including viridis, plasma, turbo
-- **Interactive Controls**: Zoom, pan, and reset functionality
 
 ### 🛠 User-Friendly Interface
-- **Integrated Jupyter Notebook**: Complete pipeline with progress tracking and error handling
-- **Command-Line Interface**: Flexible scripting with extensive configuration options
-- **GUI Tools**: Interactive baseline correction and start point selection
-- **Real-time Preview**: Data validation and visualization during processing
+- **Integrated Workflow**: Main notebook handles complete pipeline automatically
+- **Interactive GUI Tools**: Start point selection and baseline correction
+- **Command-Line Interface**: Individual script access for advanced users
+- **Real-time Validation**: Data preview and error recovery during processing
 
 ## Quick Start
 
@@ -39,232 +43,198 @@ A comprehensive Python and MATLAB toolkit for processing, analyzing, and visuali
 jupyter notebook main.ipynb
 ```
 The notebook provides a complete, interactive pipeline with:
-- Real-time progress tracking
-- Comprehensive error handling
-- Data validation at each step
-- Built-in visualization preview
+- Sequential step execution with automatic error handling
+- Real-time progress tracking with detailed logging
+- Configurable parameters directly in notebook cells
+- Automatic output directory management
+- Built-in result validation and summary reporting
 
-### Method 2: Command Line Pipeline
-```bash
-# Step 1: Data preprocessing (TXT→CSV with denoising and alignment)
-python python_dataprepare_visualize/00select_start_idx.py \
-  --input-dir ./input/data \
-  --output-dir ./output/processed_csv \
-  --rows 4 --cols 6
+### Method 2: Programmatic API
+```python
+from python_dataprepare_visualize.steps import *
 
-# Step 2: Optional baseline correction
-python python_dataprepare_visualize/00_5_manual_baseline_correction.py \
-  -i ./output/processed_csv \
-  -o ./output/baseline_corrected_csv \
-  -a  # Auto mode, or -m for manual GUI
+# Step 1: TXT to CSV conversion
+result1 = convert_txt_to_csv('data/origin', 'data/csv')
 
-# Step 3: Convert to NPZ format
-python python_dataprepare_visualize/01csv2npz.py \
-  --input-folder ./output/baseline_corrected_csv \
-  --output-file ./output/my_processed_data.npz \
-  --rows 4 --cols 6
+# Step 2: Interactive start point selection
+result2 = select_start_indices('data/csv', 'data/csv_起始点选择', vg_delay=0.0025)
 
-# Step 4: Generate MATLAB file
-python python_dataprepare_visualize/npz_to_mat.py \
-  --input-file ./output/my_processed_data.npz \
-  --output-file ./my_processed_data.mat
+# Step 3: Debiasing and truncation
+result3 = apply_debiasing('data/csv_起始点选择', 'data/csv_起始点选择_去偏')
+
+# Step 4: Convert to NPZ format
+result4 = convert_csv_to_npz_file('data/csv_起始点选择_去偏', 'data/data.npz', rows=4, cols=6)
+
+# Step 5: Generate MATLAB file
+result5 = convert_npz_to_mat_file('data/data.npz', 'data/data.mat')
 ```
 
-### Method 3: Individual Processing Scripts
+### Method 3: Individual Scripts
 ```bash
-# For video generation (5-point sampling)
-python python_dataprepare_visualize/01sample.py
-python python_dataprepare_visualize/03video.py
+# Advanced users can still access individual components
+python python_dataprepare_visualize/csv2npz.py \
+  --input-folder ./data/processed \
+  --output-file ./data/output.npz \
+  --rows 4 --cols 6
 
-# For detailed analysis (all data points)
-python python_dataprepare_visualize/02picture.py
+python python_dataprepare_visualize/npz_to_mat.py \
+  --input-file ./data/output.npz \
+  --output-file ./data/output.mat
 ```
 
 ## Project Architecture
 
 ```
 multiseries_temporal_visualizer/
-├── main.ipynb                          # 🎯 Integrated pipeline notebook
-├── python_dataprepare_visualize/       # Core processing scripts
-│   ├── 00select_start_idx.py          # Data preprocessing pipeline
-│   ├── 00_5_manual_baseline_correction.py  # Baseline correction
-│   ├── 01sample.py                     # 5-point sampling
-│   ├── 01csv2npz.py                    # CSV to NPZ conversion
-│   ├── 02picture.py                    # Static visualizations
-│   ├── 03video.py                      # Video generation
+├── main.ipynb                          # 🎯 Primary integrated pipeline
+├── python_dataprepare_visualize/       # Core processing package
+│   ├── steps.py                        # 🔧 Unified API for all processing steps
+│   ├── csv2npz.py                      # CSV to NPZ conversion
 │   ├── npz_to_mat.py                   # NPZ to MATLAB conversion
+│   ├── 00_5_manual_baseline_correction.py  # Baseline correction script
+│   ├── batch_baseline_correction.py    # Batch baseline processing
 │   └── utils/                          # Core utilities
-│       ├── dataprocess/                # Data processing tools
-│       │   ├── vibration_data_loader.py      # TXT/CSV data loader
-│       │   ├── start_idx_visualized_select.py # Interactive start point selection
+│       ├── dataprocess/                # Data processing components
+│       │   ├── vibration_data_loader.py      # TXT/CSV loader with metadata
+│       │   ├── start_idx_visualized_select.py # Interactive GUI for alignment
 │       │   ├── baseline_correction.py         # GUI baseline correction
-│       │   ├── wavelet_denoise.py             # Wavelet denoising
-│       │   └── debiasing.py                   # Baseline drift correction
-│       └── visualize/                  # Visualization tools
-│           ├── data_processor.py              # Grid data processing
+│       │   ├── debiasing.py                   # Data offset correction
+│       │   └── wavelet_denoise.py             # Wavelet filtering
+│       └── visualize/                  # Visualization components
+│           ├── data_processor.py              # Grid data organization
 │           ├── visualization_generator.py     # Video/image generation
-│           └── extract_timepoint.py           # Time-point extraction
-├── matlab_数据可视化_比python精美/      # MATLAB visualization scripts
-│   ├── main01_3d.m                     # 3D surface plots
-│   ├── main02_heatmap.m                # Heat map visualizations
+│           ├── extract_timepoint.py           # Time-point extraction
+│           └── example.py                     # Usage examples
+├── matlab_数据可视化_比python精美/      # MATLAB visualization suite
+│   ├── main01_3d.m                     # 3D surface animations
 │   └── main03_heatmapwithprofile.m     # Heat maps with profiles
-├── input/data/                         # Raw data files (TXT format)
-├── output/                             # Processing outputs
-└── logs/                              # Processing logs
+├── data/                               # Organized data structure
+│   ├── origin/                         # Raw TXT files
+│   ├── csv/                           # Converted CSV files
+│   ├── csv_起始点选择/                 # Start-point aligned data
+│   ├── csv_起始点选择_去偏/            # Debiased and truncated data
+│   ├── data.npz                       # Grid-organized data
+│   └── data.mat                       # MATLAB-compatible output
+├── datasets/                          # Archive of experimental datasets
+├── logs/                              # Processing logs
+└── requirements.txt                   # Python dependencies
 ```
 
 ## Data Processing Workflow
 
-### Core Pipeline
-1. **Raw Data (TXT files)** → `00select_start_idx.py` → **CSV files with alignment**
-2. **Aligned CSV** → `00_5_manual_baseline_correction.py` → **Baseline-corrected CSV**
-3. **Corrected CSV** → `01csv2npz.py` → **NPZ grid data**
-4. **NPZ data** → `npz_to_mat.py` → **MATLAB MAT file**
-5. **MAT file** → **MATLAB scripts** → **High-quality visualizations**
+### Core Pipeline (Integrated)
+The main notebook (`main.ipynb`) executes this complete workflow:
+
+1. **TXT → CSV Conversion** (`convert_txt_to_csv`)
+   - Parse raw measurement files with metadata extraction
+   - Handle various file formats and encoding
+
+2. **Start Point Selection** (`select_start_indices`) 
+   - Interactive GUI with dual-signal display (Vg + measurement)
+   - Configurable Vg delay compensation (default: 2.5ms)
+   - Advanced zoom/pan controls for precise alignment
+
+3. **Debiasing Processing** (`apply_debiasing`)
+   - Offset correction to zero baseline 
+   - Optional truncation to minimum common length
+   - Handles missing data gracefully
+
+4. **Grid Organization** (`convert_csv_to_npz_file`)
+   - Spatial arrangement of time series (e.g., 4×6 grid)
+   - Time synchronization and interpolation
+   - Memory-efficient processing with progress tracking
+
+5. **MATLAB Export** (`convert_npz_to_mat_file`)
+   - Full metadata preservation
+   - Compatible data structures for MATLAB visualization
 
 ### Key Processing Features
-- **Vg Signal Support**: Automatic time delay compensation (default: 2.5ms)
-- **Grid Organization**: Configurable spatial arrangement (e.g., 4×6 grid)
-- **Memory Efficiency**: Chunked processing for large datasets
-- **Data Validation**: Comprehensive error checking and recovery
+- **Unified Error Handling**: Each step returns standardized success/error information
+- **Progress Tracking**: Real-time logging with loguru integration
+- **Memory Management**: Efficient processing for large datasets
+- **Configuration Flexibility**: All parameters easily adjustable
 
 ## Advanced Features
 
 ### Interactive Start Point Selection
-- **Dual-Signal Display**: Vg voltage and original signal comparison on synchronized subplots
-- **Visual Alignment**: What-you-see-is-what-you-get time alignment with configurable Vg delay
-- **Time Delay Compensation**: Automatic Vg signal offset (default: 2.5ms) for proper alignment
-- **Advanced Zoom Controls**:
+The GUI interface provides:
+
+- **Dual-Signal Display**: Synchronized visualization of Vg voltage and measurement signals
+- **Hardware Delay Compensation**: 
+  - Default 2.5ms Vg delay for typical OECT measurements
+  - Configurable range 0-10ms for different systems
+  - Applied transparently during file loading
+- **Advanced Navigation**:
   - Mouse wheel zoom centered on cursor position
-  - X-axis synchronized between both signal plots
-  - Independent Y-axis scaling for each signal
-- **Precise Navigation**:
-  - Shift+drag or middle mouse button for panning
-  - 'r' key or Reset View button to restore original view
-  - Smart zoom maintains selected start point markers
-- **Keyboard Shortcuts**: 'n' for next, 'k' to skip, 'r' to reset view
-- **Hardware Delay Compensation**: Configurable Vg delay (0-10ms) for measurement system alignment
+  - Synchronized X-axis scaling between signal plots
+  - Independent Y-axis scaling for each subplot
+  - Shift+drag or middle-click for smooth panning
+- **Keyboard Shortcuts**: 
+  - 'n' to save and proceed to next file
+  - 'k' to skip current file
+  - 'r' to reset zoom to original view
 
-### Baseline Correction Modes
-- **Automatic Mode**: Linear correction using first and last points
-- **Manual Mode**: Interactive GUI for custom baseline point selection
-- **Skip Mode**: Bypass correction when not needed
+### Debiasing and Data Preparation
+- **Baseline Correction**: Automatic offset removal using first data point as reference
+- **Length Normalization**: Optional truncation to ensure consistent time series lengths
+- **Quality Validation**: Automatic detection of corrupted or incomplete data files
 
-### Wavelet Denoising
-- **Configurable Wavelets**: Default db6, customizable levels
-- **Selective Filtering**: Keep specific frequency components
-- **Before/After Comparison**: Visual validation of denoising effectiveness
-
-### Visualization Options
-- **Heat Map Animations**: Time-evolving 2D color maps
-- **3D Surface Videos**: Rotating 3D surface plots with customizable angles
-- **Profile Analysis**: Cross-sectional views with heat maps
-- **Static Snapshots**: High-resolution images at specific time points
-- **Multiple Export Formats**: MP4, GIF, PNG, CSV data export
-
-### Color Mapping Options
-- **Scientific Color Maps**: viridis, plasma, inferno, magma, cividis, turbo
-- **Classic Gradients**: jet, rainbow, ocean, terrain, hot, cool
-- **Diverging Schemes**: RdBu, coolwarm, seismic, spectral
-- **Single Color Gradients**: Blues, Reds, Greens, YlOrRd, BuPu
-- **Colorblind-Friendly**: cividis, viridis optimized for accessibility
-
-## MATLAB Visualization
-
-After generating the MAT file, use MATLAB scripts for enhanced visualizations:
+### MATLAB Integration
+After processing, use the MATLAB scripts for publication-quality visualizations:
 
 ```matlab
 % Load the processed data
-data = load('my_processed_data.mat');
+data = load('data/data.mat');
 
-% Run visualization scripts
-main01_3d          % 3D surface animations
-main02_heatmap     % Heat map visualizations  
-main03_heatmapwithprofile  % Heat maps with cross-sectional profiles
+% Generate professional visualizations
+main01_3d                    % 3D surface animations with rotation
+main03_heatmapwithprofile   % Heat maps with cross-sectional profiles
 ```
+
+The MATLAB scripts provide:
+- High-resolution 3D surface animations
+- Heat maps with integrated cross-sectional profiles  
+- Professional color schemes and layout optimization
+- Video export capabilities with customizable parameters
 
 ## Configuration Options
 
-### Grid Setup
-- **Flexible Dimensions**: Configurable rows × cols (e.g., 4×6, 6×6)
-- **Natural File Sorting**: Automatic handling of file naming patterns
-- **Missing File Handling**: Graceful handling of incomplete grids
-
 ### Processing Parameters
-- **Wavelet Settings**: Type (db6), decomposition levels (6), node selection
-- **Vg Signal Alignment**:
-  - Default delay: 2.5ms for hardware compensation
-  - Configurable range: 0-10ms for different measurement systems
-  - Real-time application during file loading for WYSIWYG alignment
-  - Automatic detection of Vg files (files ending with 'V.txt' or 'V.csv')
-- **Temporal Settings**: Signal truncation options, sampling rate handling
-- **Memory Management**: All-points vs. sampled processing modes
-- **Output Control**: Flexible file naming and directory structure
-
-### Video Generation
-- **Quality Settings**: Configurable DPI (150), bitrate, frame rate (30 fps)
-- **Format Options**: MP4 (FFmpeg), GIF (Pillow), HTML fallbacks
-- **Visual Enhancements**: Timestamps, color bars, custom titles
-- **View Controls**: Fixed or rotating 3D views, elevation/azimuth settings
-
-## Advanced Usage Examples
-
-### Vg Signal Delay Configuration
+All parameters can be configured in the main notebook or through the API:
 
 ```python
-from python_dataprepare_visualize.utils.dataprocess.start_idx_visualized_select import StartIdxVisualizedSelect
+# Vg Signal Alignment
+vg_delay = 0.0025  # 2.5ms default for OECT measurements
 
-# Default 2.5ms delay for most measurement systems
-processor = StartIdxVisualizedSelect(
-    input_folder="./input/data",
-    output_folder="./output/processed",
-    vg_delay=0.0025  # 2.5ms default
-)
+# Grid Configuration
+rows = 4           # Spatial grid rows
+cols = 6           # Spatial grid columns
 
-# Custom delay for specific hardware setup
-processor = StartIdxVisualizedSelect(
-    input_folder="./input/data", 
-    output_folder="./output/processed",
-    vg_delay=0.003  # 3ms for slower response systems
-)
-
-# No delay for pre-aligned data
-processor = StartIdxVisualizedSelect(
-    input_folder="./input/data",
-    output_folder="./output/processed", 
-    vg_delay=0.0  # No delay compensation
-)
-
-processor.run()
+# Data Processing
+truncate_to_min = True  # Normalize time series lengths
+use_all_points = True   # Use full resolution vs. sampling
 ```
 
-### Interactive Start Point Selection Workflow
+### Vg Signal Delay Examples
+```python
+# Standard OECT measurement system
+vg_delay = 0.0025  # 2.5ms
 
-1. **Initial Overview**: View complete signal traces for both Vg and original data
-2. **Zoom to Region**: Use mouse wheel to zoom into time region of interest
-3. **Fine-tune Position**: Shift+drag to pan and center the critical transition point  
-4. **Precise Selection**: Click to select start point with pixel-level accuracy
-5. **Verify Selection**: Press 'r' to reset view and confirm the selection looks correct
-6. **Save and Continue**: Press 'n' to save trimmed data and move to next file
+# Pre-synchronized data
+vg_delay = 0.0     # No delay compensation
+```
 
-### Mouse and Keyboard Controls
-
-| Control | Action |
-|---------|--------|
-| Left Click | Select start point |
-| Mouse Wheel | Zoom in/out centered on cursor |
-| Shift + Drag | Pan view (X-axis synchronized, Y-axis independent) |
-| Middle Mouse + Drag | Alternative pan method |
-| 'r' Key | Reset to original view |
-| 'n' Key | Save selection and process next file |
-| 'k' Key | Skip current file |
+### Grid Configuration Options
+- **Standard Layout**: 4×6 (24 measurement points)
+- **High-Density**: 6×6 (36 measurement points) 
+- **Custom Arrangements**: Any row×column combination
+- **Missing Point Handling**: Graceful handling of incomplete grids
 
 ## System Requirements
 
 ### Core Dependencies
 - Python 3.7+
 - NumPy, pandas, matplotlib, scipy
-- PyWavelets (wavelet analysis)
 - loguru (logging), tqdm (progress bars)
 - tkinter (GUI components)
 
@@ -272,37 +242,88 @@ processor.run()
 - **FFmpeg**: High-quality MP4 video output (recommended)
 - **MATLAB**: Enhanced visualizations (optional)
 
-### Platform Support
-- **Cross-Platform**: Windows, macOS, Linux
-- **Font Handling**: Automatic Chinese font selection per platform
-- **Path Compatibility**: Uses pathlib for cross-platform paths
+### Installation
+```bash
+# Clone repository
+git clone <repository-url>
+cd multiseries_temporal_visualizer
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+```
+
+## Usage Examples
+
+### Basic Pipeline Execution
+```python
+# Run complete pipeline with default settings
+results = {}
+
+# Execute each step with error handling
+from python_dataprepare_visualize.steps import *
+
+results["txt_to_csv"] = convert_txt_to_csv('data/origin', 'data/csv')
+results["start_idx_selection"] = select_start_indices('data/csv', 'data/csv_起始点选择', vg_delay=0.0025)
+results["debiasing"] = apply_debiasing('data/csv_起始点选择', 'data/csv_起始点选择_去偏')
+results["csv_to_npz"] = convert_csv_to_npz_file('data/csv_起始点选择_去偏', 'data/data.npz', rows=4, cols=6)
+results["npz_to_mat"] = convert_npz_to_mat_file('data/data.npz', 'data/data.mat')
+
+# Check results
+for step_name, result in results.items():
+    status = "✓" if result.get("success", False) else "✗"
+    print(f"{status} {step_name}: {result.get('message', 'Unknown')}")
+```
+
+### Advanced Baseline Correction
+```python
+# Automatic baseline correction
+from python_dataprepare_visualize.steps import apply_baseline_correction
+
+result = apply_baseline_correction(
+    input_dir='data/processed',
+    output_dir='data/baseline_corrected',
+    mode="auto"  # or "manual" for GUI interface
+)
+```
 
 ## Performance Optimization
 
 ### Memory Management
-- **Chunked Processing**: Handles large datasets without memory overflow
-- **Sampling Options**: 5-point sampling vs. all-points processing
+- **Chunked Processing**: Large datasets processed in manageable chunks
+- **Progress Monitoring**: Real-time memory usage tracking
 - **Efficient Data Structures**: NumPy arrays for optimal performance
 
 ### Processing Speed
-- **Parallel Operations**: Efficient data loading and processing
-- **Progress Tracking**: Real-time progress bars and logging
-- **Error Recovery**: Robust handling of data format variations
+- **Optimized Algorithms**: Efficient signal processing and data organization
+- **Parallel-Ready**: Designed for easy parallelization of batch processing
+- **Smart Caching**: Intermediate results cached to avoid recomputation
 
 ## Troubleshooting
 
 ### Common Issues
-- **FFmpeg Installation**: Install for high-quality videos (see INSTALLATION.md)
-- **Memory Errors**: Use sampling mode or reduce grid size
-- **Font Rendering**: Install platform-specific Chinese fonts
-- **File Format**: Ensure consistent file naming conventions
+- **Memory Errors**: Reduce grid size or enable sampling mode
+- **GUI Display Issues**: Ensure proper X11 forwarding for remote sessions
+- **File Format Errors**: Verify consistent file naming (11.txt, 11V.txt pattern)
+- **MATLAB Integration**: Ensure compatible data structures in exported MAT files
 
 ### Performance Tips
-- **Grid Size**: Start with smaller grids (4×6) for testing
-- **Sampling**: Use 5-point sampling for faster iteration
-- **Video Quality**: Adjust DPI/bitrate based on requirements
-- **Batch Processing**: Process multiple experiments efficiently
+- **Start with Notebook**: Use `main.ipynb` for initial exploration
+- **Batch Processing**: Process multiple datasets using the programmatic API
+- **Memory Monitoring**: Watch memory usage during large dataset processing
+- **Quality vs. Speed**: Adjust sampling parameters based on requirements
 
-For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
+For development guidance and technical details, see [CLAUDE.md](CLAUDE.md).
 
-For development guidance, see [CLAUDE.md](CLAUDE.md).
+## Citation
+
+If you use this software in your research, please cite:
+
+```bibtex
+@software{multiseries_temporal_visualizer,
+  title={Multiseries Temporal Visualizer: OECT Swelling Signal Processing and Visualization System},
+  author={[Your Name]},
+  year={2025},
+  url={https://github.com/your-username/multiseries_temporal_visualizer}
+}
+```

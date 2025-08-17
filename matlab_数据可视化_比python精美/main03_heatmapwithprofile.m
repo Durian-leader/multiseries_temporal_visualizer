@@ -7,7 +7,7 @@ original_time_points = data.time_points;
 [num_frames, num_rows, num_cols] = size(original_grid_data);
 fprintf('原始数据: %d 帧, %d 行, %d 列\n', num_frames, num_rows, num_cols);
 % 设置目标帧数
-target_frames = 500; % 设置你想要的帧数
+target_frames = 40000; % 设置你想要的帧数
 % 如果原始帧数大于目标帧数，则进行降采样
 if num_frames > target_frames
     % 方法1: 简单的等距离抽样
@@ -16,20 +16,6 @@ if num_frames > target_frames
     downsampled_time_points = original_time_points(downsample_indices);
     % 显示降采样后的信息
     fprintf('降采样后: %d 帧, %d 行, %d 列\n', size(downsampled_grid_data, 1), num_rows, num_cols);
-    % 如果需要，也可以尝试其他降采样方法
-    % % 方法2: 如果希望使用平均值进行降采样，取消下面的注释并注释掉方法1
-    % 
-    % % 将帧数分成target_frames组，计算每组的平均值
-    % group_size = floor(num_frames / target_frames);
-    % downsampled_grid_data = zeros(target_frames, num_rows, num_cols);
-    % downsampled_time_points = zeros(target_frames, 1);
-    % for i = 1:target_frames
-    %     start_idx = (i-1) * group_size + 1;
-    %     end_idx = min(i * group_size, num_frames);
-    %     % 计算每组的平均值
-    %     downsampled_grid_data(i, :, :) = mean(original_grid_data(start_idx:end_idx, :, :), 1);
-    %     downsampled_time_points(i) = mean(original_time_points(start_idx:end_idx));
-    % end
     
     % 使用降采样后的数据
     grid_data = downsampled_grid_data;
@@ -65,8 +51,10 @@ if length(timepoints) ~= numFrames
     error('timepoints向量长度必须与数据第一维大小相匹配');
 end
 
-% 创建视频对象
-videoFileName = 'heatmap_with_profiles1.mp4';
+% 生成带时间戳的视频文件名
+timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+videoFileName = sprintf('heatmap_with_profiles_%s.mp4', timestamp);
+fprintf('输出文件名: %s\n', videoFileName);
 videoObj = VideoWriter(videoFileName, 'MPEG-4');
 videoObj.FrameRate = 10; % 可以根据需要调整帧率
 videoObj.Quality = 100; % 可以根据需要调整质量 (0-100)

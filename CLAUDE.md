@@ -4,29 +4,35 @@ This file provides comprehensive guidance for Claude Code when working with the 
 
 ## Project Overview
 
-This is a multiseries temporal data visualization toolkit focused on processing and visualizing time-series data from scientific experiments, particularly for vibration/expansion measurements in materials science. The project provides both Python and MATLAB implementations for data preprocessing and visualization.
+This is a multiseries temporal data visualization toolkit focused on processing and visualizing time-series data from scientific experiments, particularly for OECT (Organic Electrochemical Transistor) swelling measurements in materials science. The project provides both Python and MATLAB implementations with a unified, integrated processing pipeline.
 
 ## Architecture Overview
 
 ### Core Components
 
-1. **Data Processing Pipeline** (`python_dataprepare_visualize/`)
+1. **Integrated Pipeline** (`main.ipynb` + `steps.py`)
+   - Primary user interface through Jupyter notebook
+   - Unified API functions for all processing steps
+   - Automatic error handling and progress tracking
+   - Sequential step execution with validation
+
+2. **Data Processing Pipeline** (`python_dataprepare_visualize/`)
    - Raw data loading and conversion (TXT → CSV)
-   - Wavelet denoising and signal alignment
-   - Baseline correction (automatic and manual)
+   - Interactive start point selection with Vg signal support
+   - Debiasing and truncation processing
    - Grid organization and format conversion (CSV → NPZ → MAT)
 
-2. **Visualization System** (`utils/visualize/`)
+3. **Visualization System** (`utils/visualize/`)
    - High-quality video generation (heatmaps, 3D surfaces)
    - Static visualization and data extraction
    - Cross-platform color mapping and font handling
 
-3. **Interactive Tools** (`utils/dataprocess/`)
+4. **Interactive Tools** (`utils/dataprocess/`)
    - GUI-based start point selection with Vg signal support
    - Interactive baseline correction with dual-mode operation
    - Real-time preview and validation
 
-4. **MATLAB Integration** (`matlab_数据可视化_比python精美/`)
+5. **MATLAB Integration** (`matlab_数据可视化_比python精美/`)
    - Professional-grade 3D visualizations
    - Enhanced plotting capabilities
    - Cross-platform data compatibility
@@ -34,9 +40,10 @@ This is a multiseries temporal data visualization toolkit focused on processing 
 ### Key Data Flow
 
 ```
-Raw TXT Files → CSV (aligned) → NPZ (grid) → MAT (MATLAB) → Visualizations
-     ↓              ↓              ↓            ↓             ↓
-  Metadata    Baseline Corr.   Time Sync.   3D Arrays    Videos/Images
+Raw TXT Files → CSV (converted) → CSV (aligned) → CSV (debiased) → NPZ (grid) → MAT (MATLAB) → Visualizations
+     ↓              ↓                ↓               ↓              ↓            ↓              ↓
+  Metadata      File Loading    Start Point    Baseline Corr.  Time Sync.   3D Arrays    Videos/Images
+   Parsing         GUI           Selection        & Truncate     Grid Org.                  & Plots
 ```
 
 ## Development Commands
@@ -53,12 +60,12 @@ venv\Scripts\activate     # Windows
 pip install -r requirements.txt
 
 # Verify installation
-python -c "import numpy, pandas, matplotlib, scipy, pywt, loguru, tqdm; print('✓ Ready for development')"
+python -c "import numpy, pandas, matplotlib, scipy, loguru, tqdm; print('✓ Ready for development')"
 ```
 
 ### Core Development Workflow
 
-#### Integrated Pipeline (Recommended for Development)
+#### Method 1: Integrated Jupyter Notebook (Primary Interface)
 ```bash
 # Use the integrated Jupyter notebook for complete pipeline
 jupyter notebook main.ipynb
@@ -67,79 +74,109 @@ jupyter lab main.ipynb
 ```
 
 **Features of main.ipynb:**
-- Real-time progress tracking with detailed logging
-- Comprehensive error handling and recovery mechanisms
+- Complete sequential pipeline execution
+- Real-time progress tracking with comprehensive logging
+- Automatic error handling and recovery mechanisms
 - Data validation at each processing step
-- Built-in visualization preview and debugging
+- Built-in result summary reporting
 - Configurable parameters through notebook cells
 - Memory usage monitoring and optimization
 
-#### Manual Processing Pipeline (Individual Components)
-```bash
-# Step 1: Complete preprocessing pipeline
-python python_dataprepare_visualize/00select_start_idx.py \
-  --input-dir ./input/data \
-  --output-dir ./output/processed_csv \
-  --rows 4 --cols 6 \
-  --vg-delay 0.0025 \
-  --wavelet db6 --wavelet-level 6
+#### Method 2: Programmatic API (Advanced Users)
+```python
+# Import the unified API
+from python_dataprepare_visualize.steps import *
 
-# Step 1.5: Baseline correction (optional)
-# Automatic mode
+# Execute complete pipeline programmatically
+results = {}
+
+# Step 1: TXT to CSV conversion
+results["txt_to_csv"] = convert_txt_to_csv('data/origin', 'data/csv')
+
+# Step 2: Interactive start point selection
+results["start_idx_selection"] = select_start_indices(
+    'data/csv', 'data/csv_起始点选择', 
+    vg_delay=0.0025  # 2.5ms Vg delay
+)
+
+# Step 3: Debiasing and truncation
+results["debiasing"] = apply_debiasing(
+    'data/csv_起始点选择', 'data/csv_起始点选择_去偏',
+    truncate_to_min=True
+)
+
+# Step 4: CSV to NPZ conversion
+results["csv_to_npz"] = convert_csv_to_npz_file(
+    'data/csv_起始点选择_去偏', 'data/data.npz',
+    rows=4, cols=6
+)
+
+# Step 5: NPZ to MAT conversion
+results["npz_to_mat"] = convert_npz_to_mat_file(
+    'data/data.npz', 'data/data.mat'
+)
+
+# Check results
+for step_name, result in results.items():
+    status = "✓" if result.get("success", False) else "✗"
+    message = result.get("message", "Unknown status")
+    print(f"{status} {step_name}: {message}")
+```
+
+#### Method 3: Individual Component Scripts (Legacy Support)
+```bash
+# Individual scripts for specific tasks (advanced usage)
+python python_dataprepare_visualize/csv2npz.py \
+  --input-folder ./data/processed \
+  --output-file ./data/output.npz \
+  --rows 4 --cols 6
+
+python python_dataprepare_visualize/npz_to_mat.py \
+  --input-file ./data/output.npz \
+  --output-file ./data/output.mat
+```
+
+#### Optional: Baseline Correction
+```bash
+# Automatic baseline correction mode
 python python_dataprepare_visualize/00_5_manual_baseline_correction.py \
-  -i ./output/processed_csv \
-  -o ./output/baseline_corrected_csv \
+  -i ./input/csv \
+  -o ./output/baseline_corrected \
   -a -v
 
-# Manual mode with GUI
+# Manual GUI baseline correction mode
 python python_dataprepare_visualize/00_5_manual_baseline_correction.py \
-  -i ./output/processed_csv \
-  -o ./output/baseline_corrected_csv \
+  -i ./input/csv \
+  -o ./output/baseline_corrected \
   -m -v
-
-# Step 2: CSV to NPZ conversion
-python python_dataprepare_visualize/01csv2npz.py \
-  --input-folder ./output/baseline_corrected_csv \
-  --output-file ./output/my_processed_data.npz \
-  --rows 4 --cols 6 --use-all-points
-
-# Step 3: NPZ to MATLAB conversion
-python python_dataprepare_visualize/npz_to_mat.py \
-  --input-file ./output/my_processed_data.npz \
-  --output-file ./my_processed_data.mat
-```
-
-#### Visualization Pipeline
-```bash
-# For video generation (5-point sampling)
-python python_dataprepare_visualize/01sample.py
-python python_dataprepare_visualize/03video.py
-
-# For detailed analysis (all data points)
-python python_dataprepare_visualize/02picture.py
-```
-
-#### Testing and Validation
-```bash
-# Test individual components
-python python_dataprepare_visualize/04查看某个信号小波去噪前后的对比.py
-
-# Run specific processing steps
-python -c "from python_dataprepare_visualize.utils.dataprocess.vibration_data_loader import VibrationDataLoader; print('✓ Data loader test')"
 ```
 
 ## Code Architecture Details
 
 ### Core Data Structures
 
-#### 1. Grid Data Format
+#### 1. Unified API Response Format
+```python
+# Standardized response from all step functions
+response = {
+    "success": bool,           # Operation success status
+    "input_dir/file": str,     # Input path
+    "output_dir/file": str,    # Output path  
+    "message": str,            # Human-readable status message
+    "error": str,              # Error details (if failed)
+    "files_processed": int,    # Number of files processed
+    # Step-specific additional fields
+}
+```
+
+#### 2. Grid Data Format
 ```python
 # 3D numpy arrays [time, rows, cols] for spatial-temporal data
 grid_data: np.ndarray  # Shape: (time_points, rows, cols)
 time_points: np.ndarray  # Shape: (time_points,)
 ```
 
-#### 2. Processed Data Dictionary
+#### 3. Processed Data Dictionary
 ```python
 processed_data = {
     'grid_data': np.ndarray,      # Main 3D grid data
@@ -154,29 +191,55 @@ processed_data = {
 }
 ```
 
-#### 3. File Path Grid
+### Key Classes and Functions
+
+#### 1. Unified API Functions (`steps.py`)
+
+**convert_txt_to_csv()** - TXT to CSV conversion
 ```python
-# 2D array mapping spatial positions to data file paths
-file_paths_grid: List[List[str]]  # Shape: (rows, cols)
-# Row-major ordering: row = idx // cols, col = idx % cols
+def convert_txt_to_csv(input_dir: str, output_dir: str, verbose: bool = True) -> Dict[str, Any]:
+    """Convert TXT files to CSV format with metadata parsing"""
 ```
 
-### Key Classes and Their Roles
+**select_start_indices()** - Interactive start point selection
+```python
+def select_start_indices(input_dir: str, output_dir: str, vg_delay: float = 0.0025, verbose: bool = True) -> Dict[str, Any]:
+    """Interactive GUI for temporal alignment with Vg signal support"""
+```
 
-#### 1. VibrationDataLoader (`vibration_data_loader.py:13-286`)
-**Purpose:** Load and convert raw TXT files with metadata parsing
+**apply_debiasing()** - Debiasing and truncation
+```python
+def apply_debiasing(input_dir: str, output_dir: str, truncate_to_min: bool = True, verbose: bool = True) -> Dict[str, Any]:
+    """Apply baseline offset correction and optional truncation"""
+```
+
+**convert_csv_to_npz_file()** - CSV to NPZ conversion
+```python
+def convert_csv_to_npz_file(input_folder: str, output_file: str, rows: int = 4, cols: int = 6, use_all_points: bool = True, verbose: bool = True) -> Dict[str, Any]:
+    """Convert CSV files to NPZ grid format"""
+```
+
+**convert_npz_to_mat_file()** - NPZ to MAT conversion
+```python
+def convert_npz_to_mat_file(input_file: str, output_file: str, include_metadata: bool = True, verbose: bool = True) -> Dict[str, Any]:
+    """Convert NPZ to MATLAB MAT format"""
+```
+
+**run_full_pipeline()** - Complete automated pipeline
+```python
+def run_full_pipeline(input_txt_dir: str, output_base_dir: str = "./output", rows: int = 4, cols: int = 6, vg_delay: float = 0.0025, ...) -> Dict[str, Any]:
+    """Execute complete processing pipeline with all steps"""
+```
+
+#### 2. Core Processing Classes
+
+**VibrationDataLoader** (`vibration_data_loader.py:13-286`)
 ```python
 loader = VibrationDataLoader.from_txt(file_path)
 csv_path = loader.to_csv(output_path, include_metadata=False)
 ```
 
-**Key Methods:**
-- `from_txt()`: Parse TXT files with metadata extraction
-- `to_csv()`: Export to CSV with optional metadata
-- `convert_txt_to_csv_batch()`: Batch processing of TXT files
-
-#### 2. StartIdxVisualizedSelect (`start_idx_visualized_select.py:21-673`)
-**Purpose:** Interactive GUI for temporal alignment with Vg signal support and advanced zoom/pan controls
+**StartIdxVisualizedSelect** (`start_idx_visualized_select.py:21-673`)
 ```python
 processor = StartIdxVisualizedSelect(
     input_folder="./input/csv",
@@ -186,83 +249,24 @@ processor = StartIdxVisualizedSelect(
 processor.run()
 ```
 
-**Key Features:**
-- Dual-signal display with synchronized subplots (Vg voltage + original signal)
-- Visual time alignment with configurable Vg delay compensation
-- **Advanced Zoom Controls:**
-  - Mouse wheel zoom centered on cursor position
-  - X-axis synchronized between both signal plots
-  - Independent Y-axis scaling for each subplot
-- **Precise Navigation:**
-  - Shift+drag or middle mouse button for panning
-  - Smart zoom maintains selected start point markers
-  - 'r' key or Reset View button to restore original view
-- Keyboard shortcuts: 'n' next, 'k' skip, 'r' reset view
-- **Vg Delay Configuration:**
-  - Default: 2.5ms for hardware compensation
-  - Range: 0-10ms for different measurement systems
-  - Applied during file loading for WYSIWYG alignment
-  - Automatic detection of Vg files (ending with 'V.txt' or 'V.csv')
-
-#### 3. DataProcessor (`data_processor.py:21-371`)
-**Purpose:** Convert individual time series into synchronized grid format
+**DataProcessor** (`data_processor.py:21-371`)
 ```python
 processor = DataProcessor(
     input_folder="./csv_data",
     rows=4, cols=6,
-    use_all_points=True  # False for 500-point sampling
+    use_all_points=True
 )
 processor.save_processed_data("output.npz")
 ```
 
-**Key Methods:**
-- `_create_file_grid()`: Natural sorting and grid organization
-- `_load_data()`: CSV loading with error handling
-- `_synchronize_time_points()`: Temporal interpolation and alignment
-
-#### 4. VisualizationGenerator (`visualization_generator.py:71-200+`)
-**Purpose:** High-quality video and image generation
-```python
-viz_gen = VisualizationGenerator(
-    processed_data=data,
-    fps=30, dpi=150,
-    colormap='viridis',
-    vmin=None, vmax=None
-)
-
-# Generate different visualization types
-viz_gen.generate_heatmap_video("heatmap.mp4")
-viz_gen.generate_3d_surface_video("surface.mp4", rotate_view=True)
-viz_gen.generate_heatmap_with_profiles_video("profiles.mp4")
-```
-
 ### Processing Configuration
 
-#### Wavelet Parameters
-- **Default Wavelet:** `db6` (Daubechies 6)
-- **Decomposition Levels:** `6`
-- **Node Selection:** `['aaaaaa']` (approximate coefficients only)
-- **Configurable via:** Command line args or function parameters
-
 #### Vg Signal Handling
-- **Default Delay:** `2.5ms (0.0025s)` - optimal for most measurement systems
-- **Purpose:** Compensate for hardware latency between Vg signal and actual measurement response
+- **Default Delay:** `2.5ms (0.0025s)` - optimal for OECT measurement systems
 - **Configuration Range:** `0-10ms` - adjustable for different measurement systems
-- **Implementation Details:**
-  - Applied during file loading in `read_data_file()` method
-  - Automatic detection of Vg files (files ending with 'V.txt' or 'V.csv')
-  - Time offset added to first column (time) of Vg data: `data[time_col] = data[time_col] + vg_delay`
-  - Transparent operation - both signals align in time domain after loading
-- **Visual Alignment:** What-you-see-is-what-you-get approach
-- **Interface Feedback:**
-  - Subplot titles show delay info: "Vg Signal: 11V.txt (延时2.5ms)" or "(无延时)"
-  - Log messages confirm delay application: "已对Vg文件应用 2.5ms 时间偏移"
-- **Usage Scenarios:**
-  - Hardware delay compensation for measurement systems
-  - Signal synchronization from different sensors
-  - Time series alignment for cross-correlation analysis
-- **Precision:** Limited by data sampling rate
-- **Best Practices:** Use consistent delay settings across experiment batches
+- **Purpose:** Compensate for hardware latency between Vg signal and measurement response
+- **Implementation:** Applied during file loading in GUI interface
+- **Visual Feedback:** Synchronized dual-subplot display with delay information
 
 #### Grid Organization
 - **Default Size:** `4×6` grid (24 measurement points)
@@ -270,13 +274,34 @@ viz_gen.generate_heatmap_with_profiles_video("profiles.mp4")
 - **Missing Files:** Gracefully handled with `None` placeholders
 - **Flexibility:** Configurable dimensions via parameters
 
-#### Memory Management
-- **All-Points Mode:** Use complete time series data
-- **Sampling Mode:** Downsample to specified point count (e.g., 500)
-- **Chunked Processing:** For large datasets
-- **Progress Tracking:** Real-time status with `tqdm` and `loguru`
+#### Error Handling and Logging
+- **Unified Error Responses:** Consistent error reporting across all functions
+- **Progress Tracking:** Real-time logging with `loguru` integration
+- **Recovery Mechanisms:** Graceful handling of file format variations
+- **Validation:** Data integrity checks at each processing step
 
 ## Important Implementation Details
+
+### Integrated Pipeline Workflow
+
+#### Main Notebook Structure (`main.ipynb`)
+1. **Initialize Results Tracking**
+   ```python
+   results = {}
+   ```
+
+2. **Execute Sequential Steps**
+   - Each step stores results in `results` dictionary
+   - Automatic error checking with early termination on failure
+   - Progress tracking with detailed logging
+
+3. **Result Summary**
+   ```python
+   for step_name, result in results.items():
+       status = "✓" if result.get("success", False) else "✗"
+       message = result.get("message", "Unknown status")
+       print(f"{status} {step_name}: {message}")
+   ```
 
 ### Cross-Platform Font Handling
 ```python
@@ -289,424 +314,151 @@ elif platform.system() == 'Linux':
     plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei', 'WenQuanYi Zen Hei']
 ```
 
-### Color Mapping System
-```python
-# Comprehensive color scheme support
-CLASSIC_COLORMAPS = {
-    'viridis': 'viridis',    # Default scientific
-    'plasma': 'plasma',      # High contrast
-    'turbo': 'turbo',        # Full spectrum
-    'RdBu': 'RdBu_r',        # Diverging (reversed)
-    'jet': 'jet',            # Classic rainbow
-    # ... 20+ total schemes
-}
+### Data Directory Structure
 ```
-
-### Video Generation Pipeline
-1. **Quality Settings:** Configurable DPI (default: 150), bitrate, FPS (default: 30)
-2. **Format Priority:** FFmpeg MP4 → Pillow GIF → HTML fallback
-3. **Enhancement Options:** Timestamps, colorbars, custom titles
-4. **View Controls:** Fixed or rotating 3D views
-
-### Error Handling and Logging
-```python
-# Comprehensive logging with loguru
-logger.configure(handlers=[
-    {"sink": sys.stdout, "level": "INFO"},
-    {"sink": "logs/processing.log", "level": "DEBUG", "rotation": "10 MB"}
-])
-
-# Error recovery mechanisms
-try:
-    result = processing_function()
-except Exception as e:
-    logger.error(f"Processing failed: {str(e)}")
-    # Implement fallback or recovery
-```
-
-## Interactive Workflow Best Practices
-
-### Start Point Selection Workflow
-
-#### Optimal User Experience Flow
-1. **Initial Overview** - Display complete signal traces for context
-2. **Zoom to Critical Region** - Use mouse wheel to focus on transition areas
-3. **Fine-tune Positioning** - Shift+drag to center critical points
-4. **Precise Selection** - Click to select with pixel-level accuracy
-5. **Verification** - Press 'r' to reset view and confirm selection
-6. **Save and Continue** - Press 'n' to process and move to next file
-
-#### Zoom and Pan Implementation Details
-```python
-# Mouse scroll event handler
-def on_scroll(self, event):
-    """Handle mouse scroll events for zooming"""
-    if event.inaxes not in [self.ax, self.ax2]:
-        return
-    
-    # Get mouse position and current limits
-    xdata, ydata = event.xdata, event.ydata
-    cur_xlim = self.ax.get_xlim()
-    
-    # Calculate zoom scale
-    scale_factor = 1 / self.zoom_factor if event.button == 'up' else self.zoom_factor
-    
-    # Apply zoom centered on mouse position
-    new_xlim = [xdata - (xdata - cur_xlim[0]) * scale_factor,
-                xdata - (xdata - cur_xlim[1]) * scale_factor]
-    
-    # Synchronize X-axis between subplots
-    self.ax.set_xlim(new_xlim)
-    self.ax2.set_xlim(new_xlim)
-```
-
-#### Navigation Controls Reference
-```python
-# Mouse and keyboard controls mapping
-CONTROL_MAPPING = {
-    'left_click': 'select_start_point',
-    'mouse_wheel': 'zoom_in_out',
-    'shift_drag': 'pan_view',
-    'middle_drag': 'pan_view_alt',
-    'r_key': 'reset_view',
-    'n_key': 'save_and_next',
-    'k_key': 'skip_file'
-}
-```
-
-#### Technical Implementation Notes
-- **Synchronized X-Axis:** Both subplots share time axis for consistent navigation
-- **Independent Y-Axis:** Each signal maintains its own scale for clarity
-- **Smart Marker Persistence:** Selected points remain visible during zoom/pan operations
-- **Event Handling Priority:** Click events distinguished from drag events using event modifiers
-
-### Vg Signal Delay Configuration Patterns
-
-#### Common Configuration Scenarios
-```python
-# Scenario 1: Standard measurement system
-processor = StartIdxVisualizedSelect(
-    input_folder="./data",
-    output_folder="./processed",
-    vg_delay=0.0025  # 2.5ms - most common hardware delay
-)
-
-# Scenario 2: High-precision system with faster response
-processor = StartIdxVisualizedSelect(
-    input_folder="./data",
-    output_folder="./processed", 
-    vg_delay=0.001  # 1ms - faster systems
-)
-
-# Scenario 3: Legacy system with slower response
-processor = StartIdxVisualizedSelect(
-    input_folder="./data",
-    output_folder="./processed",
-    vg_delay=0.005  # 5ms - slower systems
-)
-
-# Scenario 4: Pre-aligned data
-processor = StartIdxVisualizedSelect(
-    input_folder="./data",
-    output_folder="./processed",
-    vg_delay=0.0  # No delay compensation needed
-)
-```
-
-#### Delay Validation and Testing
-```python
-# Method to validate delay setting with known test signals
-def validate_vg_delay(test_file_path, expected_delay):
-    """
-    Test Vg delay setting using a signal with known characteristics.
-    
-    Args:
-        test_file_path: Path to test data with known timing
-        expected_delay: Expected delay in seconds
-        
-    Returns:
-        bool: True if delay setting produces expected alignment
-    """
-    processor = StartIdxVisualizedSelect(
-        input_folder=os.path.dirname(test_file_path),
-        output_folder="./temp",
-        vg_delay=expected_delay
-    )
-    
-    # Load both signals and check alignment
-    original_data = processor.read_data_file(test_file_path)
-    vg_file = test_file_path.replace('.txt', 'V.txt')
-    vg_data = processor.read_data_file(vg_file)
-    
-    # Verify alignment using cross-correlation or known features
-    return check_signal_alignment(original_data, vg_data)
-```
-
-### Performance Optimization for Interactive Tools
-
-#### Memory Management for Large Datasets
-```python
-# Efficient data loading for large files
-def load_data_chunked(file_path, chunk_size=10000):
-    """Load large CSV files in chunks to manage memory usage"""
-    chunks = pd.read_csv(file_path, chunksize=chunk_size)
-    return pd.concat(chunks, ignore_index=True)
-
-# Downsampling for visualization while preserving precision
-def smart_downsample(data, target_points=5000):
-    """Intelligent downsampling that preserves critical features"""
-    if len(data) <= target_points:
-        return data
-    
-    # Use uniform downsampling with feature preservation
-    indices = np.linspace(0, len(data)-1, target_points).astype(int)
-    return data.iloc[indices]
-```
-
-#### GUI Responsiveness Optimization
-```python
-# Non-blocking UI updates
-def update_plot_async(self):
-    """Update plots without blocking user interaction"""
-    self.fig.canvas.draw_idle()  # Non-blocking redraw
-    plt.pause(0.001)  # Minimal pause to process events
-    
-# Event handling optimization
-def optimize_event_handling(self):
-    """Optimize event connection for better responsiveness"""
-    # Disconnect/reconnect only necessary events
-    self.fig.canvas.mpl_disconnect('motion_notify_event')
-    # Only reconnect during active dragging
+data/
+├── origin/                    # Raw TXT files
+├── csv/                      # Converted CSV files
+├── csv_起始点选择/            # Start-point aligned data
+├── csv_起始点选择_去偏/       # Debiased and truncated data
+├── data.npz                  # Grid-organized NPZ data
+└── data.mat                  # MATLAB-compatible output
 ```
 
 ## Development Guidelines
 
-### Code Style and Conventions
+### Using the Unified API
 
-1. **Import Organization:**
+1. **Import Pattern:**
    ```python
-   # Standard library imports
-   import os
-   import sys
-   from pathlib import Path
-   
-   # Third-party imports
-   import numpy as np
-   import pandas as pd
-   import matplotlib.pyplot as plt
-   
-   # Local imports
-   from utils.dataprocess.vibration_data_loader import VibrationDataLoader
+   from python_dataprepare_visualize.steps import *
    ```
 
-2. **Error Handling:**
-   - Use `try-except` blocks for file operations
-   - Log errors with context using `loguru`
-   - Provide fallback mechanisms where possible
-   - Validate inputs before processing
-
-3. **Function Documentation:**
+2. **Error Handling Pattern:**
    ```python
-   def process_data(input_folder: str, output_file: str, rows: int = 4, cols: int = 6) -> Dict[str, Any]:
-       """
-       Process time series data into grid format.
-       
-       Args:
-           input_folder: Path to folder containing CSV files
-           output_file: Path for NPZ output file
-           rows: Number of grid rows
-           cols: Number of grid columns
+   result = convert_txt_to_csv(input_dir, output_dir)
+   if not result["success"]:
+       logger.error(f"Conversion failed: {result.get('error', 'Unknown error')}")
+       return result
+   ```
+
+3. **Progress Tracking:**
+   ```python
+   # All functions include verbose parameter for detailed logging
+   result = select_start_indices(input_dir, output_dir, verbose=True)
+   ```
+
+### Adding New Processing Steps
+
+1. **Create Function in steps.py:**
+   ```python
+   def new_processing_step(input_dir: str, output_dir: str, param1: type = default, verbose: bool = True) -> Dict[str, Any]:
+       """New processing step with unified interface"""
+       try:
+           # Processing logic here
            
-       Returns:
-           Dictionary containing processing results and metadata
-       """
+           if verbose:
+               logger.info(f"Processing completed: {input_dir} -> {output_dir}")
+           
+           return {
+               "success": True,
+               "input_dir": input_dir,
+               "output_dir": output_dir,
+               "param1": param1,
+               "message": "Processing completed successfully"
+           }
+           
+       except Exception as e:
+           logger.error(f"Processing failed: {str(e)}")
+           return {
+               "success": False,
+               "error": str(e),
+               "message": "Processing failed"
+           }
    ```
 
-4. **Configuration Management:**
-   - Use command-line arguments with `argparse`
-   - Provide reasonable defaults
-   - Support both programmatic and CLI usage
-   - Include help text and validation
+2. **Update main.ipynb:**
+   ```python
+   # Add to notebook pipeline
+   results["new_step"] = new_processing_step(input_dir, output_dir)
+   if not results["new_step"]["success"]:
+       print(results)
+   ```
 
-### Testing and Validation
+### Configuration Management
 
-#### Unit Testing Approach
+#### Common Parameters
 ```python
-# Test data loading
-def test_data_loader():
-    loader = VibrationDataLoader.from_txt("test_data.txt")
-    assert loader.data is not None
-    assert len(loader.data) > 0
+# Standard grid configuration
+rows = 4
+cols = 6
 
-# Test processing pipeline
-def test_processing_pipeline():
-    processor = DataProcessor("test_input", rows=2, cols=2)
-    result = processor.get_processed_data()
-    assert result['grid_data'].shape == (N_time, 2, 2)
+# Vg signal alignment
+vg_delay = 0.0025  # 2.5ms default
+
+# Data processing options
+truncate_to_min = True
+use_all_points = True
+include_metadata = True
 ```
 
-#### Integration Testing
+#### Parameter Validation
+- All functions validate input parameters
+- Provide meaningful error messages for invalid configurations
+- Support flexible parameter types where appropriate
+
+## Testing and Validation
+
+### Function Testing Pattern
 ```python
-# Test complete workflow
-def test_full_pipeline():
-    # Run preprocessing
-    result1 = run_preprocessing_pipeline(
-        input_dir="test/input",
-        output_dir="test/output"
-    )
-    assert result1['success']
+# Test individual steps
+def test_txt_to_csv():
+    result = convert_txt_to_csv("test_input", "test_output")
+    assert result["success"] == True
+    assert "files_processed" in result
+
+def test_pipeline_integration():
+    results = run_full_pipeline("test_data", "test_output")
+    assert results["pipeline"]["success"] == True
+    assert all(step["success"] for step in results.values() if "success" in step)
+```
+
+### Data Validation
+- **File Existence:** Check input files before processing
+- **Format Validation:** Verify CSV structure and data types
+- **Grid Completeness:** Validate spatial arrangement
+- **Time Synchronization:** Ensure consistent time axes
+
+## Performance Optimization
+
+### Memory Management
+```python
+# Efficient processing for large datasets
+def process_large_dataset(input_dir, chunk_size=100):
+    """Process data in chunks to manage memory usage"""
+    files = list(Path(input_dir).glob("*.csv"))
     
-    # Test visualization
-    viz_gen = VisualizationGenerator(result1['data'])
-    viz_gen.generate_heatmap_video("test_output.mp4")
-    assert Path("test_output.mp4").exists()
+    for chunk in chunked(files, chunk_size):
+        yield process_chunk(chunk)
 ```
 
-### Performance Optimization
-
-#### Memory Efficiency
+### Progress Monitoring
 ```python
-# Use generators for large datasets
-def process_large_dataset(files):
-    for file_batch in chunked(files, chunk_size=100):
-        yield process_batch(file_batch)
+# Real-time progress tracking
+from tqdm import tqdm
+from loguru import logger
 
-# Monitor memory usage
-import psutil
-process = psutil.Process()
-memory_mb = process.memory_info().rss / 1024 / 1024
-logger.info(f"Memory usage: {memory_mb:.1f} MB")
+def process_with_progress(files):
+    for file in tqdm(files, desc="Processing files"):
+        result = process_file(file)
+        logger.info(f"Processed: {file}")
 ```
-
-#### Processing Speed
-```python
-# Parallel processing where appropriate
-from concurrent.futures import ProcessPoolExecutor
-
-with ProcessPoolExecutor(max_workers=4) as executor:
-    results = list(executor.map(process_file, file_list))
-```
-
-## Common Development Tasks
-
-### Adding New Visualization Types
-
-1. **Extend VisualizationGenerator class:**
-   ```python
-   def generate_custom_plot(self, output_file: str, **kwargs):
-       """Generate custom visualization type."""
-       fig, ax = plt.subplots(figsize=(10, 8))
-       # Custom plotting logic
-       self._save_with_metadata(fig, output_file)
-   ```
-
-2. **Update color mapping support:**
-   ```python
-   # Add to CLASSIC_COLORMAPS dictionary
-   CLASSIC_COLORMAPS['custom_scheme'] = 'custom_cmap'
-   ```
-
-### Adding New Data Processing Steps
-
-1. **Create processing function:**
-   ```python
-   def custom_processing_step(input_data, **params):
-       """Custom data processing step."""
-       # Processing logic
-       return processed_data
-   ```
-
-2. **Integrate into pipeline:**
-   ```python
-   # Add to main processing script
-   if enable_custom_processing:
-       result = custom_processing_step(data, **config)
-   ```
-
-### Extending File Format Support
-
-1. **Add format detection:**
-   ```python
-   def detect_file_format(file_path):
-       """Detect and return file format type."""
-       # Format detection logic
-   ```
-
-2. **Create format-specific loader:**
-   ```python
-   class NewFormatLoader:
-       @classmethod
-       def from_file(cls, file_path):
-           # Format-specific loading logic
-   ```
-
-## Troubleshooting Common Issues
-
-### Data Loading Problems
-- **Issue:** TXT files not parsing correctly
-- **Solution:** Check file encoding, delimiter detection, metadata format
-- **Debug:** Enable verbose logging, inspect raw file contents
-
-### Memory Issues
-- **Issue:** Out of memory during processing
-- **Solutions:** 
-  - Use sampling mode (`use_all_points=False`)
-  - Reduce grid size
-  - Process in smaller batches
-  - Close unnecessary applications
-
-### Visualization Problems
-- **Issue:** FFmpeg not found
-- **Solutions:**
-  - Install FFmpeg and add to PATH
-  - Use alternative formats (GIF, HTML)
-  - Check `animation.writers.list()` for available options
-
-### GUI Issues
-- **Issue:** Interactive tools not displaying
-- **Solutions:**
-  - Ensure X11 forwarding for SSH
-  - Install tkinter package
-  - Use virtual display for headless systems (`xvfb-run`)
-
-### Font Rendering Issues
-- **Issue:** Chinese characters not displaying
-- **Solutions:**
-  - Install appropriate fonts for platform
-  - Clear matplotlib font cache
-  - Set font manually in rcParams
-
-## Performance Monitoring
-
-### Key Metrics to Monitor
-```python
-# Processing time tracking
-start_time = time.time()
-# ... processing ...
-elapsed_time = time.time() - start_time
-logger.info(f"Processing completed in {elapsed_time:.2f} seconds")
-
-# Memory usage tracking
-import psutil
-memory_percent = psutil.virtual_memory().percent
-logger.info(f"System memory usage: {memory_percent:.1f}%")
-
-# File size monitoring
-file_size = Path(output_file).stat().st_size
-logger.info(f"Output file size: {file_size:,} bytes")
-```
-
-### Optimization Strategies
-1. **Data Size Management:** Use appropriate sampling rates
-2. **File I/O Optimization:** Use SSD storage, minimize file operations
-3. **Memory Management:** Process in chunks, clean up temporary data
-4. **Parallel Processing:** Utilize multiple cores where applicable
 
 ## MATLAB Integration Details
 
 ### Data Structure Compatibility
 ```matlab
-% Expected MAT file structure
+% Expected MAT file structure from convert_npz_to_mat_file()
 data.grid_data      % (time_points, rows, cols) double array
 data.time_points    % (1, time_points) double array
 data.min_signal     % scalar double
@@ -718,33 +470,41 @@ data.cols          % scalar double
 ### MATLAB Workflow Integration
 ```matlab
 % Load processed data
-data = load('my_processed_data.mat');
+data = load('data/data.mat');
 
 % Run visualization scripts
-main01_3d;          % 3D surface animations
-main02_heatmap;     % Heat map visualizations  
-main03_heatmapwithprofile; % Heat maps with cross-sectional profiles
+main01_3d;                      % 3D surface animations
+main03_heatmapwithprofile;      % Heat maps with cross-sectional profiles
 ```
 
 ## Best Practices Summary
 
-1. **Always validate inputs** before processing
-2. **Use appropriate logging levels** (DEBUG for development, INFO for production)
-3. **Handle missing files gracefully** with meaningful error messages
-4. **Provide progress feedback** for long-running operations
-5. **Support both command-line and programmatic usage**
-6. **Maintain backward compatibility** when modifying interfaces
-7. **Document configuration options** thoroughly
-8. **Test with various data sizes and formats**
-9. **Optimize for the common use case** (4×6 grid, standard processing)
-10. **Provide clear error messages** with suggested solutions
+1. **Use the Integrated Notebook** - Primary interface for most users
+2. **Check Return Values** - Always validate success status from API functions
+3. **Handle Errors Gracefully** - Implement proper error handling and logging
+4. **Validate Inputs** - Check file existence and format before processing
+5. **Monitor Progress** - Use verbose logging for long-running operations
+6. **Maintain Data Structure** - Follow established directory organization
+7. **Document Parameters** - Clearly specify all configuration options
+8. **Test Incrementally** - Validate each processing step independently
+9. **Optimize for Memory** - Use appropriate sampling for large datasets
+10. **Leverage MATLAB** - Use MATLAB scripts for final visualization quality
 
-## Future Development Considerations
+## Troubleshooting Common Issues
 
-- **Scalability:** Consider distributed processing for very large datasets
-- **User Interface:** Potential web-based interface for broader accessibility
-- **Data Formats:** Support for additional scientific data formats
-- **Real-time Processing:** Streaming data processing capabilities
-- **Cloud Integration:** Support for cloud storage and processing platforms
+### API Integration Problems
+- **Import Errors:** Ensure `python_dataprepare_visualize` is in Python path
+- **Function Not Found:** Check function name spelling in `steps.py`
+- **Parameter Errors:** Validate required vs. optional parameters
 
-This codebase represents a mature scientific data processing toolkit with extensive flexibility and robust error handling. When making modifications, always consider the impact on existing workflows and maintain the high standards of documentation and testing established in the current codebase.
+### Data Processing Issues
+- **File Format Errors:** Verify TXT/CSV file structure and encoding
+- **Memory Issues:** Use sampling mode or reduce grid size
+- **GUI Display:** Ensure proper X11 forwarding for remote sessions
+
+### Pipeline Execution
+- **Step Failures:** Check individual step error messages in results
+- **Data Validation:** Verify input data integrity and file naming conventions
+- **Output Issues:** Ensure proper permissions for output directories
+
+This codebase represents a mature scientific data processing toolkit with a unified, user-friendly interface. The integration of the main notebook with the programmatic API provides flexibility for both interactive use and automated processing while maintaining consistent error handling and progress tracking throughout the pipeline.

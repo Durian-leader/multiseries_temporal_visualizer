@@ -165,18 +165,27 @@ class DataProcessor:
         logger.info(f"信号范围: {self.min_signal:.4f} 到 {self.max_signal:.4f}")
     
     def _synchronize_time_points(self):
-        """创建公共时间点并将所有信号插值到这些点"""
+        """假设所有文件时间轴相同，直接使用第一个文件的时间轴"""
         logger.info("同步时间点...")
         
         if self.use_all_points:
-            # 收集所有唯一的时间点
-            all_time_points = set()
-            for (i, j), item in self.data.items():
-                all_time_points.update(item['time'])
+            # 取第一个文件的时间轴作为公共时间轴
+            first_key = next(iter(self.data))
+            first_item = self.data[first_key]
+            self.time_points = first_item['time'].copy()
+            logger.info(f"使用第一个文件的时间轴: {len(self.time_points)} 个时间点")
             
-            # 转换为排序的数组
-            self.time_points = np.array(sorted(all_time_points))
-            logger.info(f"使用所有原始数据点: {len(self.time_points)} 个时间点")
+            # 可选：验证其他文件的时间轴是否相同（调试用）
+            time_axis_mismatch = False
+            for (i, j), item in self.data.items():
+                if not np.array_equal(item['time'], self.time_points):
+                    logger.warning(f"文件 ({i},{j}) 的时间轴与第一个文件不同")
+                    time_axis_mismatch = True
+            
+            if not time_axis_mismatch:
+                logger.info("✓ 所有文件的时间轴都相同，无需插值")
+            else:
+                logger.warning("⚠ 发现时间轴不一致，建议检查数据")
         else:
             # 创建等间隔的时间点
             self.time_points = np.linspace(self.min_time, self.max_time, self.sampling_points)
@@ -185,24 +194,23 @@ class DataProcessor:
         # 预分配3D网格数据: [时间, 行, 列]
         self.grid_data = np.full((len(self.time_points), self.rows, self.cols), np.nan)
         
-        # 将每个信号插值到公共时间点
+        # 直接将信号复制到网格中（无需插值）
         for (i, j), item in self.data.items():
-            # 创建插值函数(线性插值)
-            f = interp.interp1d(
-                item['time'], 
-                item['signal'], 
-                bounds_error=False, 
-                fill_value=(item['signal'][0], item['signal'][-1])
-            )
-            
-            # 插值到公共时间点
-            interpolated_signal = f(self.time_points)
-            
-            # 存储到3D网格
-            self.grid_data[:, i, j] = interpolated_signal
-            
-            # 同时存储到原始数据字典
-            item['interp_signal'] = interpolated_signal
+            if self.use_all_points and np.array_equal(item['time'], self.time_points):
+                # 时间轴相同，直接复制信号
+                self.grid_data[:, i, j] = item['signal']
+                item['interp_signal'] = item['signal']  # 保持兼容性
+            else:
+                # 时间轴不同或使用采样模式，需要插值
+                f = interp.interp1d(
+                    item['time'], 
+                    item['signal'], 
+                    bounds_error=False, 
+                    fill_value=(item['signal'][0], item['signal'][-1])
+                )
+                interpolated_signal = f(self.time_points)
+                self.grid_data[:, i, j] = interpolated_signal
+                item['interp_signal'] = interpolated_signal
         
         logger.info(f"完成了 {len(self.time_points)} 个时间点的数据同步")
     
