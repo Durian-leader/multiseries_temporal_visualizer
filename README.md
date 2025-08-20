@@ -322,8 +322,8 @@ If you use this software in your research, please cite:
 ```bibtex
 @software{multiseries_temporal_visualizer,
   title={Multiseries Temporal Visualizer: OECT Swelling Signal Processing and Visualization System},
-  author={[Your Name]},
+  author={[Donghao Li]},
   year={2025},
-  url={https://github.com/your-username/multiseries_temporal_visualizer}
+  url={https://github.com/Durian-leader/multiseries_temporal_visualizer}
 }
 ```

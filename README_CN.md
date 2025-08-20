@@ -321,8 +321,8 @@ result = apply_baseline_correction(
 ```bibtex
 @software{multiseries_temporal_visualizer,
   title={多系列时序数据可视化系统：OECT溶胀信号处理与可视化系统},
-  author={[您的姓名]},
+  author={[李东昊]},
   year={2025},
-  url={https://github.com/your-username/multiseries_temporal_visualizer}
+  url={https://github.com/Durian-leader/multiseries_temporal_visualizer}
 }
 ```
