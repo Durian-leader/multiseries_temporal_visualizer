@@ -7,7 +7,7 @@ original_time_points = data.time_points;
 [num_frames, num_rows, num_cols] = size(original_grid_data);
 fprintf('原始数据: %d 帧, %d 行, %d 列\n', num_frames, num_rows, num_cols);
 % 设置目标帧数
-target_frames = 40000; % 设置你想要的帧数
+target_frames = 500; % 设置你想要的帧数
 % 如果原始帧数大于目标帧数，则进行降采样
 if num_frames > target_frames
     % 方法1: 简单的等距离抽样
@@ -40,9 +40,17 @@ timestamp = datestr(now, 'yyyymmdd_HHMMSS');
 filename = sprintf('3d_surface_animation_%s.mp4', timestamp);
 fprintf('输出文件名: %s\n', filename);
 
+% 加载电流数据
+current_file = 'Current/3.3Hz.csv';
+fprintf('加载电流数据: %s\n', current_file);
+current_data = readtable(current_file);
+current_time_data = current_data.Time;
+current_values = current_data.id;
+fprintf('电流数据: %d 个时间点，时间范围 %.6f - %.6f 秒\n', length(current_time_data), min(current_time_data), max(current_time_data));
+
 % 使用降采样后的数据创建3D表面动画，并传入自动计算的Z轴限制和时间点信息
-% 使用自定义图窗大小
-create_3d_surf_video(grid_data, 'FileName', filename,'ZLimits', [zlim_min, zlim_max], 'ViewAngles', [-45, 45],'TimePoints', time_points, 'TimeUnit', 's', 'FigureSize', [1000, 800], 'Colormap','turbo', 'ShowVg', true);
+% 使用自定义图窗大小，并传递电流数据
+create_3d_surf_video(grid_data, 'FileName', filename,'ZLimits', [zlim_min, zlim_max], 'ViewAngles', [-45, 45],'TimePoints', time_points, 'TimeUnit', 's', 'FigureSize', [1000, 800], 'Colormap','turbo', 'ShowVg', true, 'ShowCurrent', true, 'CurrentTime', current_time_data, 'CurrentValues', current_values, 'UseGeneratedVg', false, 'CurrentFile', current_file, 'VgYTicks', [-0.3,0, 0.6]);
 
 
 
@@ -80,6 +88,12 @@ function create_3d_surf_video(data3D, varargin)
 %   'FigureSize'    - 图窗大小 [宽, 高]，默认为 [1280, 720]
 %   'ShowVg'        - 是否显示Vg电压波形，默认为 true
 %   'VgConfig'      - Vg电压参数结构体，包含window_length, top_voltage, bottom_voltage, top_time, bottom_time, stop_time
+%   'CurrentTime'   - 电流数据的时间轴数组
+%   'CurrentValues' - 电流数据的值数组
+%   'ShowCurrent'   - 是否显示电流波形，默认为 true
+%   'UseGeneratedVg' - 是否使用生成的Vg波形，默认为 false（true时使用生成的Vg，false时使用CSV中的实测Vg）
+%   'CurrentFile'   - CSV文件路径，用于读取实测Vg数据，默认为空
+%   'VgYTicks'      - 自定义Vg电压Y轴刻度数组，默认为 [-0.3, 0.6]
 
 % 解析输入参数
 p = inputParser;
@@ -103,6 +117,12 @@ defaultVgConfig.top_time = 0.1515151515;
 defaultVgConfig.bottom_time = 0.1515151515;
 defaultVgConfig.period = defaultVgConfig.top_time + defaultVgConfig.bottom_time;
 defaultVgConfig.stop_time = 8.9454;
+defaultCurrentTime = [];
+defaultCurrentValues = [];
+defaultShowCurrent = true;
+defaultUseGeneratedVg = false;  % true: 使用生成的Vg波形, false: 使用CSV中的实测Vg
+defaultCurrentFile = '';  % CSV文件路径
+defaultVgYTicks = [-0.3, 0.6];  % 自定义Vg电压刻度
 
 addRequired(p, 'data3D');
 addParameter(p, 'FileName', defaultFileName, @ischar);
@@ -119,6 +139,12 @@ addParameter(p, 'TimeUnit', defaultTimeUnit, @ischar);
 addParameter(p, 'FigureSize', defaultFigureSize, @isnumeric); % 新增：图窗大小参数
 addParameter(p, 'ShowVg', defaultShowVg, @islogical);
 addParameter(p, 'VgConfig', defaultVgConfig, @isstruct);
+addParameter(p, 'CurrentTime', defaultCurrentTime);
+addParameter(p, 'CurrentValues', defaultCurrentValues);
+addParameter(p, 'ShowCurrent', defaultShowCurrent, @islogical);
+addParameter(p, 'UseGeneratedVg', defaultUseGeneratedVg, @islogical);
+addParameter(p, 'CurrentFile', defaultCurrentFile, @ischar);
+addParameter(p, 'VgYTicks', defaultVgYTicks, @isnumeric);
 
 parse(p, data3D, varargin{:});
 args = p.Results;
@@ -208,6 +234,74 @@ if args.ShowVg
         (mod(t, vg_config.period) < vg_config.top_time));
 end
 
+% 准备电流数据和Vg数据（如果需要显示电流）
+if args.ShowCurrent && ~isempty(args.CurrentTime) && ~isempty(args.CurrentValues)
+    original_current_time = args.CurrentTime;
+    original_current_values = args.CurrentValues;
+    
+    % 检查是否需要扩展电流数据到实验结束时间
+    max_experiment_time = max(timePoints);
+    max_current_time = max(original_current_time);
+    
+    if max_current_time < max_experiment_time
+        % 需要扩展：在末尾添加零值
+        fprintf('电流数据时间范围不够，从 %.6f 秒扩展到 %.6f 秒\n', max_current_time, max_experiment_time);
+        
+        % 创建扩展的时间点（从电流数据结束时间到实验结束时间）
+        time_step = median(diff(original_current_time)); % 使用原始采样间隔
+        extended_time = (max_current_time + time_step):time_step:max_experiment_time;
+        
+        % 合并原始数据和扩展数据
+        current_time_data = [original_current_time; extended_time'];
+        current_values_data = [original_current_values; zeros(length(extended_time), 1)];
+        
+        fprintf('扩展后电流数据: 时间范围 %.6f - %.6f 秒，共 %d 个数据点（原始 %d + 扩展 %d）\n', ...
+            min(current_time_data), max(current_time_data), length(current_time_data), ...
+            length(original_current_time), length(extended_time));
+    else
+        % 不需要扩展
+        current_time_data = original_current_time;
+        current_values_data = original_current_values;
+        fprintf('电流数据准备完成，时间范围: %.6f - %.6f 秒，共 %d 个数据点\n', min(current_time_data), max(current_time_data), length(current_time_data));
+    end
+    
+    % 如果不使用生成的Vg波形，则从CSV数据中提取实测Vg
+    if ~args.UseGeneratedVg
+        % 从CSV文件中读取Vg数据（第三列是vg）
+        try
+            % 使用传入的CurrentFile参数
+            if ~isempty(args.CurrentFile) && exist(args.CurrentFile, 'file')
+                csv_data = readtable(args.CurrentFile);
+                num_cols = size(csv_data, 2);  % 使用size替代width函数
+                if num_cols >= 3 && ismember('vg', csv_data.Properties.VariableNames)
+                    original_vg_values = csv_data.vg;
+                    fprintf('已从CSV文件 %s 中提取实测Vg数据\n', args.CurrentFile);
+                    
+                    % 同样需要扩展Vg数据
+                    if max_current_time < max_experiment_time
+                        % Vg在电流数据结束后保持为0
+                        vg_values_data = [original_vg_values; zeros(length(extended_time), 1)];
+                    else
+                        vg_values_data = original_vg_values;
+                    end
+                    
+                    fprintf('Vg数据范围: %.6f - %.6f V\n', min(vg_values_data), max(vg_values_data));
+                else
+                    fprintf('警告: CSV文件中未找到vg列，将使用生成的Vg波形\n');
+                    args.UseGeneratedVg = true;  % 回退到生成的Vg
+                end
+            else
+                fprintf('警告: CSV文件路径无效 (%s)，将使用生成的Vg波形\n', args.CurrentFile);
+                args.UseGeneratedVg = true;  % 回退到生成的Vg
+            end
+        catch ME
+            fprintf('警告: 无法读取CSV中的Vg数据 (%s)，将使用生成的Vg波形\n', ME.message);
+            args.UseGeneratedVg = true;  % 回退到生成的Vg
+        end
+    end
+end
+
+
 % 创建动画
 fprintf('开始创建视频，共 %d 帧...\n', numFrames);
 
@@ -215,8 +309,10 @@ for frame = 1:numFrames
     % 清除图形
     clf;
     
-    % 如果显示Vg波形，创建子图布局
-    if args.ShowVg
+    % 根据显示需求确定布局
+    show_side_plots = args.ShowVg || (args.ShowCurrent && ~isempty(args.CurrentTime));
+    
+    if show_side_plots
         % 主3D图 - 占据大部分空间
         ax_main = subplot('Position', [0.1, 0.15, 0.65, 0.75]);
         
@@ -293,49 +389,174 @@ for frame = 1:numFrames
     % 添加颜色条
     colorbar;
     
-    % 如果显示Vg波形，添加Vg子图
-    if args.ShowVg
-        % Vg电压波形图 - 右侧
-        ax_vg = subplot('Position', [0.8, 0.6, 0.15, 0.3]);
-        
-        % 当前时间
+    % 添加侧边子图
+    if show_side_plots
         current_time = timePoints(frame);
         
-        % 计算时间窗口 - 当前时间在窗口中心
-        window_start = current_time - vg_config.window_length / 2;
-        window_end = current_time + vg_config.window_length / 2;
+        % 如果显示Vg波形，添加Vg子图（上方）
+        if args.ShowVg
+            % Vg电压波形图 - 右上方
+            ax_vg = subplot('Position', [0.8, 0.6, 0.15, 0.25]);
+            
+            % 计算时间窗口 - 当前时间在窗口中心，但不能小于0
+            window_start = max(0, current_time - vg_config.window_length / 2);
+            window_end = current_time + vg_config.window_length / 2;
+            
+            if args.UseGeneratedVg
+                % 使用生成的Vg波形
+                current_voltage = generate_vg_waveform(current_time);
+                
+                % 只有当窗口开始时间小于当前时间时才绘制历史波形
+                if window_start < current_time
+                    % 生成时间向量和对应的电压值（过去部分）
+                    past_time_vec = linspace(window_start, current_time, 200);
+                    past_voltage_vec = arrayfun(generate_vg_waveform, past_time_vec);
+                    
+                    % 绘制过去的波形（蓝色实线）
+                    plot(past_time_vec - current_time, past_voltage_vec, 'b-', 'LineWidth', 2);
+                    hold on;
+                end
+                
+                % 绘制当前时间点（红色圆点，在x轴中心位置）
+                plot(0, current_voltage, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
+            else
+                % 使用CSV中的实测Vg数据
+                if exist('vg_values_data', 'var') && exist('current_time_data', 'var')
+                    % 找出窗口内的Vg数据点
+                    vg_mask = (current_time_data <= current_time) & (current_time_data >= window_start);
+                    
+                    if any(vg_mask)
+                        % 获取符合条件的Vg数据点
+                        display_vg_time = current_time_data(vg_mask);
+                        display_vg_values = vg_values_data(vg_mask);
+                        
+                        % 绘制历史Vg曲线（蓝色实线）
+                        plot(display_vg_time - current_time, display_vg_values, 'b-', 'LineWidth', 2);
+                        hold on;
+                        
+                        % 在最新的数据点上标记（红色圆点）
+                        if ~isempty(display_vg_values)
+                            latest_vg_time = display_vg_time(end);
+                            latest_vg_value = display_vg_values(end);
+                            plot(latest_vg_time - current_time, latest_vg_value, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
+                        end
+                    end
+                else
+                    % 回退到生成的Vg
+                    current_voltage = generate_vg_waveform(current_time);
+                    plot(0, current_voltage, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
+                end
+            end
+            
+            % 设置坐标轴
+            xlim([-vg_config.window_length/2, vg_config.window_length/2]);
+            
+            % 根据Vg数据源设置y轴
+            if args.UseGeneratedVg
+                ylim([vg_config.bottom_voltage - 0.5, vg_config.top_voltage + 0.5]);
+                % 设置y轴刻度为顶部和底部电压
+                yticks([vg_config.bottom_voltage, vg_config.top_voltage]);
+                yticklabels({[num2str(vg_config.bottom_voltage), 'V'], [num2str(vg_config.top_voltage), 'V']});
+            else
+                % 使用实测Vg数据时，使用自定义刻度
+                if exist('vg_values_data', 'var') && ~isempty(vg_values_data)
+                    % 根据自定义刻度设置y轴范围
+                    tick_range = [min(args.VgYTicks), max(args.VgYTicks)];
+                    tick_padding = (tick_range(2) - tick_range(1)) * 0.1;
+                    ylim([tick_range(1) - tick_padding, tick_range(2) + tick_padding]);
+                    
+                    % 使用自定义刻度
+                    yticks(args.VgYTicks);
+                    % 为刻度添加单位标签
+                    tick_labels = cell(size(args.VgYTicks));
+                    for i = 1:length(args.VgYTicks)
+                        tick_labels{i} = [num2str(args.VgYTicks(i)), 'V'];
+                    end
+                    yticklabels(tick_labels);
+                else
+                    % 回退到默认范围
+                    ylim([vg_config.bottom_voltage - 0.5, vg_config.top_voltage + 0.5]);
+                    yticks([vg_config.bottom_voltage, vg_config.top_voltage]);
+                    yticklabels({[num2str(vg_config.bottom_voltage), 'V'], [num2str(vg_config.top_voltage), 'V']});
+                end
+            end
+            
+            % 添加网格和标签
+            grid on;
+            xlabel('Rel. Time (s)', 'FontSize', 10);
+            ylabel('Vg (V)', 'FontSize', 10);
+            title('Drive Voltage', 'FontSize', 11, 'FontWeight', 'bold');
+            
+            % 设置坐标轴样式
+            ax_vg.FontSize = 9;
+            ax_vg.Box = 'on';
+            
+            hold off;
+        end
         
-        % 生成时间向量和对应的电压值（过去部分）
-        past_time_vec = linspace(window_start, current_time, 200);
-        past_voltage_vec = arrayfun(generate_vg_waveform, past_time_vec);
-        
-        % 绘制过去的波形（蓝色实线）
-        plot(past_time_vec - current_time, past_voltage_vec, 'b-', 'LineWidth', 2);
-        hold on;
-        
-        % 绘制当前时间点（红色圆点，在x轴中心位置）
-        current_voltage = generate_vg_waveform(current_time);
-        plot(0, current_voltage, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
-        
-        % 设置坐标轴
-        xlim([-vg_config.window_length/2, vg_config.window_length/2]);
-        ylim([vg_config.bottom_voltage - 0.5, vg_config.top_voltage + 0.5]);
-        
-        % 设置y轴刻度为顶部和底部电压
-        yticks([vg_config.bottom_voltage, vg_config.top_voltage]);
-        yticklabels({[num2str(vg_config.bottom_voltage), 'V'], [num2str(vg_config.top_voltage), 'V']});
-        
-        % 添加网格和标签
-        grid on;
-        xlabel('Rel. Time (s)', 'FontSize', 10);
-        ylabel('Vg (V)', 'FontSize', 10);
-        title('Drive Voltage Vg', 'FontSize', 12, 'FontWeight', 'bold');
-        
-        % 设置坐标轴样式
-        ax_vg.FontSize = 9;
-        ax_vg.Box = 'on';
-        
-        hold off;
+        % 如果显示电流波形，添加电流子图（下方）
+        if args.ShowCurrent && ~isempty(args.CurrentTime)
+            % 确定电流子图位置（如果有Vg图则在下方，否则在中间）
+            if args.ShowVg
+                ax_current = subplot('Position', [0.8, 0.25, 0.15, 0.25]);
+            else
+                ax_current = subplot('Position', [0.8, 0.45, 0.15, 0.3]);
+            end
+            
+            % 计算时间窗口
+            if args.ShowVg
+                window_length = vg_config.window_length;
+            else
+                window_length = 1.0;
+            end
+            window_start = current_time - window_length / 2;
+            window_end = current_time + window_length / 2;
+            
+            % 找出当前时间之前且在显示窗口内的原始电流数据点
+            current_mask = (current_time_data <= current_time) & (current_time_data >= window_start);
+            
+            if any(current_mask)
+                % 获取符合条件的原始数据点
+                display_time = current_time_data(current_mask);
+                display_current = current_values_data(current_mask);
+                
+                % 绘制历史电流曲线（绿色实线），使用原始数据点
+                plot(display_time - current_time, display_current, 'g-', 'LineWidth', 2);
+                hold on;
+                
+                % 在最新的数据点上标记（红色圆点）
+                if ~isempty(display_current)
+                    latest_time = display_time(end);
+                    latest_current = display_current(end);
+                    plot(latest_time - current_time, latest_current, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
+                end
+            end
+            
+            % 设置坐标轴
+            xlim([-window_length/2, window_length/2]);
+            
+            % 动态调整y轴范围，使用原始电流数据
+            if exist('current_values_data', 'var') && ~isempty(current_values_data)
+                y_range = [min(current_values_data), max(current_values_data)];
+                y_padding = (y_range(2) - y_range(1)) * 0.1;
+                ylim([y_range(1) - y_padding, y_range(2) + y_padding]);
+            end
+            
+            % 添加网格和标签
+            grid on;
+            xlabel('Rel. Time (s)', 'FontSize', 10);
+            ylabel('Current (A)', 'FontSize', 10);
+            title('Drain Current', 'FontSize', 11, 'FontWeight', 'bold');
+            
+            % 设置坐标轴样式
+            ax_current.FontSize = 9;
+            ax_current.Box = 'on';
+            
+            % 添加科学计数法格式
+            ax_current.YAxis.Exponent = -6;  % 显示为微安培
+            
+            hold off;
+        end
     end
 
     % 捕获当前帧，确保尺寸正确
